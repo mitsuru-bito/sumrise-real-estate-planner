@@ -1,0 +1,2660 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>不動産売却・購入ロードマップ＆資金計画シミュレーター統合版</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            background-color: #f8fafc;
+        }
+        
+        /* Dynamic Theme Variables governed by JS */
+        :root {
+            --theme-primary: #1e3a8a; /* Default: indigo-900 for Sale */
+            --theme-primary-hover: #1e40af;
+            --theme-secondary: #eff6ff; /* blue-50 */
+            --theme-accent: #f59e0b; /* amber-500 */
+            --theme-border: #3b82f6; /* blue-500 */
+            --theme-bg-gradient: linear-gradient(to right, #1e3a8a, #1e1b4b);
+            --theme-badge-bg: #dbeafe; /* blue-100 */
+            --theme-badge-text: #1e40af;
+        }
+
+        .theme-purchase {
+            --theme-primary: #065f46; /* emerald-800 for Purchase */
+            --theme-primary-hover: #047857;
+            --theme-secondary: #ecfdf5; /* emerald-50 */
+            --theme-accent: #d97706; /* amber-600 */
+            --theme-border: #10b981; /* emerald-500 */
+            --theme-bg-gradient: linear-gradient(to right, #065f46, #022c22);
+            --theme-badge-bg: #d1fae5; /* emerald-100 */
+            --theme-badge-text: #065f46;
+        }
+
+        /* Utility classes referencing variables */
+        .bg-theme-primary { background-color: var(--theme-primary); }
+        .text-theme-primary { color: var(--theme-primary); }
+        .border-theme-primary { border-color: var(--theme-primary); }
+        .bg-theme-secondary { background-color: var(--theme-secondary); }
+        .bg-theme-gradient { background-image: var(--theme-bg-gradient); }
+        .bg-theme-badge { background-color: var(--theme-badge-bg); }
+        .text-theme-badge { color: var(--theme-badge-text); }
+        
+        .step-active {
+            border-color: var(--theme-primary);
+            background-color: var(--theme-secondary);
+        }
+
+        .progress-ring__circle {
+            transition: stroke-dashoffset 0.35s;
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+        }
+
+        /* Custom scrollbar hiding */
+        .scrollbar-none::-webkit-scrollbar {
+            display: none;
+        }
+        .scrollbar-none {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="text-slate-800 antialiased transition-colors duration-200">
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed top-5 right-5 z-50 space-y-2 pointer-events-none"></div>
+
+    <!-- Mode Selector Top Bar (Sale vs Purchase) -->
+    <div class="bg-slate-900 text-white py-3 px-4 border-b border-slate-800 sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div class="flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
+                <span class="text-xs font-bold text-slate-300">システム動作モード：</span>
+                <span id="current-mode-badge" class="text-xs font-black bg-blue-600 px-2.5 py-1 rounded">売却プランナー</span>
+            </div>
+            
+            <div class="flex items-center bg-slate-800 p-1 rounded-xl border border-slate-700">
+                <button onclick="setAppMode('sale')" id="btn-mode-sale" class="py-1.5 px-4 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 bg-blue-600 text-white">
+                    <i class="fa-solid fa-file-invoice-dollar"></i> 不動産売却モード
+                </button>
+                <button onclick="setAppMode('purchase')" id="btn-mode-purchase" class="py-1.5 px-4 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 text-slate-400 hover:text-white">
+                    <i class="fa-solid fa-cart-shopping"></i> 不動産購入モード
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Header with dynamic backgrounds and titles -->
+    <header class="bg-theme-gradient text-white py-8 px-4 shadow-md transition-all duration-300">
+        <div class="max-w-7xl mx-auto flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+            <div>
+                <div class="flex flex-wrap gap-2 items-center">
+                    <span id="header-top-tag" class="bg-amber-500 text-slate-950 text-xs font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">売却＆住み替え一元化プランナー</span>
+                    <span class="bg-white/10 text-white text-[10px] font-bold px-2 py-1 rounded-full">統合 Ver 5.3</span>
+                </div>
+                <h1 id="header-main-title" class="text-2xl md:text-3xl font-extrabold mt-2 tracking-tight">不動産売却ロードマップ＆売却・住替シミュレーター</h1>
+                <p id="header-sub-desc" class="text-blue-100 text-sm mt-1 transition-all">物件種別（マンション・戸建て・土地）の売却から、新居買い替えの資金計画、進捗保存までフルカバー</p>
+            </div>
+            
+            <div class="flex flex-wrap items-center gap-4 shrink-0">
+                <!-- Data Actions (Shared data across both sale and purchase modes) -->
+                <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                    <div class="bg-white/10 p-2 rounded-xl border border-white/10 flex items-center gap-2">
+                        <button onclick="exportData()" class="bg-white/10 hover:bg-white/20 transition px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 text-white" title="売却と購入のすべてのデータ（数値・チェック・ノート）を1つのファイルに保存します">
+                            <i class="fa-solid fa-file-export"></i> 保存
+                        </button>
+                        <label class="bg-amber-500 hover:bg-amber-400 text-slate-950 transition px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer" title="保存した計画ファイルからすべてのデータを復元します">
+                            <i class="fa-solid fa-file-import"></i> 読込
+                            <input type="file" id="import-file" class="hidden" accept=".json" onchange="importData(event)">
+                        </label>
+                    </div>
+
+                    <!-- SUMRISE公式LINE相談ボタン (保存・読込の下に常時表示) -->
+                    <a href="https://s.lmes.jp/landing-qr/2009193856-NCV8FdBi?uLand=nXyykD" target="_blank" rel="noopener noreferrer" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-4 py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg border border-emerald-500 hover:scale-105 transition-all duration-300">
+                        <i class="fa-brands fa-line text-base"></i> SUMRISEへ相談
+                    </a>
+                </div>
+
+                <!-- Mode Specific Progress Widget -->
+                <div class="bg-white/10 backdrop-blur-sm rounded-xl p-4 flex items-center gap-4 border border-white/10">
+                    <div class="relative w-16 h-16">
+                        <svg class="w-full h-full">
+                            <circle class="text-white/20" stroke-width="4" stroke="currentColor" fill="transparent" r="26" cx="32" cy="32"/>
+                            <circle class="text-amber-400 progress-ring__circle" id="overall-progress-circle" stroke-width="4" stroke-dasharray="163.36" stroke-dashoffset="163.36" stroke-linecap="round" stroke="currentColor" fill="transparent" r="26" cx="32" cy="32"/>
+                        </svg>
+                        <div class="absolute inset-0 flex items-center justify-center">
+                            <span class="text-sm font-bold" id="overall-progress-text">0%</span>
+                        </div>
+                    </div>
+                    <div>
+                        <p class="text-xs text-white/80 font-medium" id="progress-mode-label">現在のやること進捗度</p>
+                        <p class="text-sm font-bold text-white mt-0.5" id="progress-status-label">準備を始めましょう！</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 py-8">
+        
+        <!-- Object Property Type Selector Bar (Context sensitive label changes) -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 mb-6 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-slate-100 text-slate-800 flex items-center justify-center" id="property-icon-box">
+                    <i class="fa-solid fa-house-chimney text-lg text-theme-primary"></i>
+                </div>
+                <div>
+                    <span class="text-xs font-bold text-slate-500 block" id="property-status-mini-label">現在の物件設定</span>
+                    <h3 class="text-sm font-extrabold text-slate-800" id="property-status-main-label">売却を予定している不動産の種類</h3>
+                </div>
+            </div>
+            <div class="grid grid-cols-3 gap-2 w-full sm:w-auto">
+                <button onclick="changePropertyType('condo')" id="btn-type-condo" class="py-2.5 px-4 rounded-xl border-2 text-xs font-bold transition-all focus:outline-none flex items-center justify-center gap-2 border-theme-primary bg-theme-secondary text-theme-primary">
+                    <i class="fa-solid fa-building"></i> マンション
+                </button>
+                <button onclick="changePropertyType('house')" id="btn-type-house" class="py-2.5 px-4 rounded-xl border-2 text-xs font-bold transition-all focus:outline-none flex items-center justify-center gap-2 border-slate-200 text-slate-600 bg-white hover:bg-slate-50">
+                    <i class="fa-solid fa-house"></i> 一戸建て
+                </button>
+                <button onclick="changePropertyType('land')" id="btn-type-land" class="py-2.5 px-4 rounded-xl border-2 text-xs font-bold transition-all focus:outline-none flex items-center justify-center gap-2 border-slate-200 text-slate-600 bg-white hover:bg-slate-50">
+                    <i class="fa-solid fa-tree" id="land-icon-symbol"></i> <span id="land-btn-text">土地のみ</span>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Navigation Tabs (Dynamically updated via setAppMode) -->
+        <div class="flex border-b border-slate-200 mb-8 overflow-x-auto whitespace-nowrap scrollbar-none" id="navigation-tabs-bar">
+            <!-- Loaded dynamically in JS based on mode -->
+        </div>
+
+        <!-- TAB 1: ROADMAP SECTION (Shared structure, dynamic database rendering) -->
+        <section id="content-roadmap" class="tab-content">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                
+                <!-- Left: Interactive Timeline Steps -->
+                <div class="lg:col-span-5 space-y-4">
+                    <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2 mb-2">
+                        <span class="flex items-center justify-center w-6 h-6 rounded-full bg-theme-primary text-white text-xs">A</span>
+                        <span id="roadmap-sidebar-title">売却フェーズを選択</span>
+                    </h2>
+                    
+                    <!-- Phase 1 Card -->
+                    <div id="step-card-1" onclick="selectPhase(1)" class="p-4 rounded-xl border-2 transition-all cursor-pointer hover:shadow-md step-active bg-white">
+                        <div class="flex items-start justify-between">
+                            <div class="flex gap-3">
+                                <div class="w-10 h-10 rounded-lg bg-theme-secondary text-theme-primary flex items-center justify-center shrink-0 font-bold text-lg">1</div>
+                                <div>
+                                    <h3 class="font-bold text-slate-900 text-base" id="phase-title-card-1">準備・査定フェーズ</h3>
+                                    <p class="text-xs text-slate-500 mt-0.5" id="phase-time-card-1">目安期間: 1〜2週間</p>
+                                </div>
+                            </div>
+                            <span class="text-xs bg-slate-100 text-slate-600 font-semibold px-2 py-1 rounded" id="phase-progress-1">0% 完了</span>
+                        </div>
+                        <p class="text-xs text-slate-600 mt-3 line-clamp-2" id="phase-desc-short-1">物件の売却相場を把握し、信頼できる不動産会社を見つけて複数の簡易査定を依頼する段階です。</p>
+                        <div class="w-full bg-slate-100 h-1.5 rounded-full mt-3 overflow-hidden">
+                            <div id="phase-bar-1" class="bg-theme-primary h-full transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Phase 2 Card -->
+                    <div id="step-card-2" onclick="selectPhase(2)" class="p-4 rounded-xl border-2 border-slate-200 bg-white transition-all cursor-pointer hover:shadow-md">
+                        <div class="flex items-start justify-between">
+                            <div class="flex gap-3">
+                                <div class="w-10 h-10 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center shrink-0 font-bold text-lg" id="phase-num-2">2</div>
+                                <div>
+                                    <h3 class="font-bold text-slate-800 text-base" id="phase-title-card-2">媒介契約・売り出し</h3>
+                                    <p class="text-xs text-slate-500 mt-0.5" id="phase-time-card-2">目安期間: 1〜3ヶ月</p>
+                                </div>
+                            </div>
+                            <span class="text-xs bg-slate-100 text-slate-600 font-semibold px-2 py-1 rounded" id="phase-progress-2">0% 完了</span>
+                        </div>
+                        <p class="text-xs text-slate-600 mt-3 line-clamp-2" id="phase-desc-short-2">相性の良い会社と「媒介契約」を結び、売出しを開始。内覧（見学）に備えて物件の魅力を高めます。</p>
+                        <div class="w-full bg-slate-100 h-1.5 rounded-full mt-3 overflow-hidden">
+                            <div id="phase-bar-2" class="bg-theme-primary h-full transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Phase 3 Card -->
+                    <div id="step-card-3" onclick="selectPhase(3)" class="p-4 rounded-xl border-2 border-slate-200 bg-white transition-all cursor-pointer hover:shadow-md">
+                        <div class="flex items-start justify-between">
+                            <div class="flex gap-3">
+                                <div class="w-10 h-10 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center shrink-0 font-bold text-lg" id="phase-num-3">3</div>
+                                <div>
+                                    <h3 class="font-bold text-slate-800 text-base" id="phase-title-card-3">条件交渉・売買契約</h3>
+                                    <p class="text-xs text-slate-500 mt-0.5" id="phase-time-card-3">目安期間: 数日〜2週間</p>
+                                </div>
+                            </div>
+                            <span class="text-xs bg-slate-100 text-slate-600 font-semibold px-2 py-1 rounded" id="phase-progress-3">0% 完了</span>
+                        </div>
+                        <p class="text-xs text-slate-600 mt-3 line-clamp-2" id="phase-desc-short-3">買主から購入希望条件を受け取り、交渉。合意したら宅地建物取引士立ち会いのもと正式に契約します。</p>
+                        <div class="w-full bg-slate-100 h-1.5 rounded-full mt-3 overflow-hidden">
+                            <div id="phase-bar-3" class="bg-theme-primary h-full transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Phase 4 Card -->
+                    <div id="step-card-4" onclick="selectPhase(4)" class="p-4 rounded-xl border-2 border-slate-200 bg-white transition-all cursor-pointer hover:shadow-md">
+                        <div class="flex items-start justify-between">
+                            <div class="flex gap-3">
+                                <div class="w-10 h-10 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center shrink-0 font-bold text-lg" id="phase-num-4">4</div>
+                                <div>
+                                    <h3 class="font-bold text-slate-800 text-base" id="phase-title-card-4">決済・引き渡し</h3>
+                                    <p class="text-xs text-slate-500 mt-0.5" id="phase-time-card-4">目安期間: 1〜2ヶ月</p>
+                                </div>
+                            </div>
+                            <span class="text-xs bg-slate-100 text-slate-600 font-semibold px-2 py-1 rounded" id="phase-progress-4">0% 完了</span>
+                        </div>
+                        <p class="text-xs text-slate-600 mt-3 line-clamp-2" id="phase-desc-short-4">住宅ローン完済や所有権移転、買主による残金決済を行い、同時に鍵を受け渡してすべての取引を終えます。</p>
+                        <div class="w-full bg-slate-100 h-1.5 rounded-full mt-3 overflow-hidden">
+                            <div id="phase-bar-4" class="bg-theme-primary h-full transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Right: Active Phase Details & Checklists -->
+                <div class="lg:col-span-7 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+                    
+                    <!-- Detail Header -->
+                    <div class="bg-slate-50 border-b border-slate-200 p-6" id="detail-header">
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs font-bold bg-theme-badge text-theme-badge px-2.5 py-1 rounded-full uppercase tracking-wider" id="detail-phase-badge">Phase 1</span>
+                            <span class="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-150 px-2.5 py-1 rounded" id="detail-type-badge">マンション向けタスク</span>
+                        </div>
+                        <h2 class="text-xl font-extrabold text-slate-900 mt-2" id="detail-phase-title">準備・査定フェーズ</h2>
+                        <p class="text-slate-600 text-sm mt-1 leading-relaxed" id="detail-phase-desc">売却を有利に進めるため、相場の調査や書類の手配を行います。</p>
+                    </div>
+
+                    <!-- Detail Body -->
+                    <div class="p-6 flex-1 space-y-6">
+                        
+                        <!-- Checklist Sub-section -->
+                        <div>
+                            <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wider mb-3 flex items-center gap-2">
+                                <i class="fa-solid fa-list-check text-theme-primary"></i> やることリスト ＆ 備忘録メモ
+                            </h3>
+                            <div class="space-y-4" id="checklist-container">
+                                <!-- Loaded dynamically via JS with toggle memos -->
+                            </div>
+                        </div>
+
+                        <!-- Knowledge Panel -->
+                        <div class="bg-amber-50 rounded-xl p-4 border border-amber-200/60" id="knowledge-panel">
+                            <h4 class="text-sm font-bold text-amber-900 flex items-center gap-2">
+                                <i class="fa-regular fa-lightbulb"></i> プロのアドバイス
+                            </h4>
+                            <p class="text-xs text-amber-800 mt-1.5 leading-relaxed" id="detail-pro-tip">
+                                査定価格は「売れる価格」ではありません。高い査定額に惑わされず、市場の相場をご自身でも調査することが重要です。
+                            </p>
+                        </div>
+
+                        <!-- Documents Section -->
+                        <div class="bg-slate-50 rounded-xl p-4 border border-slate-200/60" id="docs-panel">
+                            <h4 class="text-sm font-bold text-slate-800 flex items-center gap-2">
+                                <i class="fa-regular fa-file-lines"></i> このフェーズで準備する書類
+                            </h4>
+                            <ul class="text-xs text-slate-600 mt-2 space-y-1.5 list-disc list-inside" id="detail-docs">
+                                <!-- Loaded dynamically via JS -->
+                            </ul>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- TAB 2: SIMULATOR SECTION (Double visual components - Shown depending on Mode) -->
+        <section id="content-simulator" class="tab-content hidden">
+            <!-- SALE SIMULATOR -->
+            <div id="sim-container-sale" class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 md:p-8">
+                <div class="mb-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-xl font-extrabold text-slate-900">売却諸経費・手残りシミュレーター</h2>
+                        <p class="text-slate-500 text-sm mt-1">実際にかかる諸費用をリアルに算出。税金やローンの影響も完全反映します。</p>
+                    </div>
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg py-2 px-4 flex items-center gap-2">
+                        <span class="text-xs font-bold text-blue-900">現在の売却対象:</span>
+                        <span class="text-xs font-extrabold text-blue-900 bg-white px-2 py-0.5 rounded shadow-sm" id="sim-sale-type-badge">マンション</span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                    <!-- Left: Inputs (lg:col-span-5) -->
+                    <div class="lg:col-span-5 space-y-5 bg-slate-50 p-6 rounded-xl border border-slate-200">
+                        <h3 class="text-sm font-bold text-slate-900 border-b border-slate-200 pb-2">条件を入力</h3>
+                        
+                        <!-- 1. Sold Price -->
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1.5">想定売却価格 (万円)</label>
+                            <div class="relative rounded-md shadow-sm">
+                                <input type="number" id="sim-sold-price" value="3500" class="w-full bg-white border border-slate-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-900 focus:border-transparent text-sm font-bold" min="1" max="100000">
+                                <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                    <span class="text-slate-500 text-xs">万円</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 2. Original Buy Price -->
+                        <div>
+                            <div class="flex items-center justify-between mb-1.5">
+                                <label class="block text-xs font-bold text-slate-700">物件の購入時の価格 (万円)</label>
+                                <span class="text-[10px] bg-indigo-100 text-indigo-800 font-bold px-1.5 py-0.5 rounded">譲渡所得税に影響</span>
+                            </div>
+                            <div class="relative rounded-md shadow-sm">
+                                <input type="number" id="sim-buy-price" value="2500" class="w-full bg-white border border-slate-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-900 focus:border-transparent text-sm font-bold" min="0" max="100000">
+                                <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                    <span class="text-slate-500 text-xs">万円</span>
+                                </div>
+                            </div>
+                            <p class="text-[10px] text-slate-500 mt-1">※不明な場合は、税法上の「概算取得費（売却額の5%）」を用いて自動計算します。</p>
+                        </div>
+
+                        <!-- 3. Possession Period -->
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1.5">物件の所有期間（譲渡する年の1月1日時点）</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <label class="border border-slate-300 rounded-lg p-2.5 flex items-center gap-2 cursor-pointer bg-white" id="lbl-period-long">
+                                    <input type="radio" name="sim-period" value="long" checked onchange="calculateFinancialsSale()" class="text-blue-900 focus:ring-blue-900">
+                                    <div class="text-left">
+                                        <p class="text-xs font-bold text-slate-800">5年超（長期譲渡）</p>
+                                        <p class="text-[10px] text-slate-500">基本税率 20.315%</p>
+                                    </div>
+                                </label>
+                                <label class="border border-slate-300 rounded-lg p-2.5 flex items-center gap-2 cursor-pointer bg-white" id="lbl-period-short">
+                                    <input type="radio" name="sim-period" value="short" onchange="calculateFinancialsSale()" class="text-blue-900 focus:ring-blue-900">
+                                    <div class="text-left">
+                                        <p class="text-xs font-bold text-slate-800">5年以下（短期譲渡）</p>
+                                        <p class="text-[10px] text-slate-500">基本税率 39.63%</p>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Tax Relief Options -->
+                        <div class="bg-indigo-50/50 rounded-xl p-3 border border-indigo-100/50 space-y-2.5">
+                            <h4 class="text-xs font-bold text-indigo-900">譲渡税の特別控除・特例措置</h4>
+                            
+                            <label class="flex items-start gap-2 cursor-pointer">
+                                <input type="checkbox" id="sim-deduction" checked onchange="calculateFinancialsSale()" class="mt-0.5 rounded text-blue-900 focus:ring-blue-900">
+                                <div class="flex-1">
+                                    <span class="text-xs font-bold text-slate-700 block">3,000万円特別控除の特例</span>
+                                    <p class="text-[9px] text-slate-500 leading-relaxed">居住用不動産（マイホーム）の売却時、利益（譲渡所得）から最大3,000万円が控除されます。</p>
+                                </div>
+                            </label>
+
+                            <label class="flex items-start gap-2 cursor-pointer">
+                                <input type="checkbox" id="sim-empty-deduction" onchange="calculateFinancialsSale()" class="mt-0.5 rounded text-blue-900 focus:ring-blue-900">
+                                <div class="flex-1">
+                                    <span class="text-xs font-bold text-slate-700 block">被相続人の空き家売却特別控除</span>
+                                    <p class="text-[9px] text-slate-500 leading-relaxed">相続した昭和56年5月31日以前の旧耐震マイホームを売却・更地化を検討した際の特例措置。</p>
+                                </div>
+                            </label>
+                            
+                            <label class="flex items-start gap-2 cursor-pointer">
+                                <input type="checkbox" id="sim-ten-years" onchange="calculateFinancialsSale()" class="mt-0.5 rounded text-blue-900 focus:ring-blue-900">
+                                <div class="flex-1">
+                                    <span class="text-xs font-bold text-slate-700 block">10年超所有のマイホーム軽減税率</span>
+                                    <p class="text-[9px] text-slate-500 leading-relaxed">所有期間が10年を超える居住用財産は、3000万円控除後の譲渡所得6000万円以下の部分が税率14.21%になります。</p>
+                                </div>
+                            </label>
+                        </div>
+
+                        <!-- 4. Remaining Loan -->
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1.5">住宅ローン残高（売却時に一括返済必須）</label>
+                            <div class="relative rounded-md shadow-sm">
+                                <input type="number" id="sim-loan-remain" value="1500" class="w-full bg-white border border-slate-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-900 focus:border-transparent text-sm font-bold" min="0" max="100000">
+                                <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                    <span class="text-slate-500 text-xs">万円</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 5. Additional Expenses -->
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1.5">その他実費 (万円) - 引越し代、解体費用など</label>
+                            <div class="relative rounded-md shadow-sm">
+                                <input type="number" id="sim-other-exp" value="50" class="w-full bg-white border border-slate-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-900 focus:border-transparent text-sm font-bold" min="0" max="5000">
+                                <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                    <span class="text-slate-500 text-xs">万円</span>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Right: Outputs & Donut Chart (lg:col-span-7) -->
+                    <div class="lg:col-span-7 flex flex-col justify-between space-y-6">
+                        
+                        <!-- Top Summary Statistics -->
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4 shadow-sm">
+                                <span class="text-[10px] text-emerald-800 font-bold block">① 最終手残り金額</span>
+                                <p class="text-2xl font-black text-emerald-600 mt-1" id="sum-net-cash-sale">0 <span class="text-xs font-normal text-slate-700">万円</span></p>
+                            </div>
+                            <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 shadow-sm">
+                                <span class="text-[10px] text-amber-800 font-bold block">② 売却諸経費合計</span>
+                                <p class="text-2xl font-black text-amber-600 mt-1" id="sum-expenses-sale">0 <span class="text-xs font-normal text-slate-700">万円</span></p>
+                            </div>
+                            <div class="bg-red-50 border border-red-100 rounded-xl p-4 shadow-sm">
+                                <span class="text-[10px] text-red-800 font-bold block">③ ローン返済/その他実費</span>
+                                <p class="text-2xl font-black text-red-500 mt-1" id="sum-deductions-sale">0 <span class="text-xs font-normal text-slate-700">万円</span></p>
+                            </div>
+                        </div>
+
+                        <!-- Graphical Financial Flows (Donut Chart) -->
+                        <div class="bg-white rounded-xl border border-slate-200 p-4 md:p-6 shadow-inner flex flex-col items-center">
+                            <h4 class="text-xs font-bold text-slate-600 uppercase tracking-wider mb-4 flex items-center gap-1.5 self-start">
+                                <i class="fa-solid fa-chart-pie text-indigo-600"></i> 売却代金の引去り内訳（円グラフ）
+                            </h4>
+                            
+                            <div class="flex flex-col md:flex-row items-center justify-center gap-8 w-full py-2">
+                                <!-- SVG Donut Chart -->
+                                <div class="relative w-44 h-44 shrink-0">
+                                    <svg viewBox="0 0 36 36" class="w-full h-full transform -rotate-90">
+                                        <circle cx="18" cy="18" r="15.915" fill="none" stroke="#f1f5f9" stroke-width="4"></circle>
+                                        <circle id="slice-expenses-sale" cx="18" cy="18" r="15.915" fill="none" stroke="#f59e0b" stroke-width="4.2" stroke-dasharray="0 100" stroke-dashoffset="0" stroke-linecap="round"></circle>
+                                        <circle id="slice-loan-sale" cx="18" cy="18" r="15.915" fill="none" stroke="#ef4444" stroke-width="4.2" stroke-dasharray="0 100" stroke-dashoffset="0" stroke-linecap="round"></circle>
+                                        <circle id="slice-cash-sale" cx="18" cy="18" r="15.915" fill="none" stroke="#10b981" stroke-width="4.2" stroke-dasharray="0 100" stroke-dashoffset="0" stroke-linecap="round"></circle>
+                                    </svg>
+                                    <div class="absolute inset-0 flex flex-col items-center justify-center text-center">
+                                        <span class="text-[10px] text-slate-500 font-bold tracking-wider">手元に残る比率</span>
+                                        <span class="text-2xl font-black text-slate-900" id="donut-cash-percent-sale">0%</span>
+                                    </div>
+                                </div>
+
+                                <!-- Legend -->
+                                <div class="space-y-3 w-full max-w-xs">
+                                    <div class="flex items-center justify-between text-xs p-2.5 rounded-lg bg-emerald-50 border border-emerald-100 shadow-sm">
+                                        <div class="flex items-center gap-2">
+                                            <span class="w-3 h-3 rounded-full bg-emerald-500 inline-block"></span>
+                                            <span class="font-bold text-slate-700">① 手残り金額</span>
+                                        </div>
+                                        <span class="font-extrabold text-emerald-700" id="legend-cash-pct-sale">0%</span>
+                                    </div>
+                                    <div class="flex items-center justify-between text-xs p-2.5 rounded-lg bg-red-50 border border-red-100 shadow-sm">
+                                        <div class="flex items-center gap-2">
+                                            <span class="w-3 h-3 rounded-full bg-red-500 inline-block"></span>
+                                            <span class="font-bold text-slate-700">② ローン返済 / 実費</span>
+                                        </div>
+                                        <span class="font-extrabold text-red-700" id="legend-loan-pct-sale">0%</span>
+                                    </div>
+                                    <div class="flex items-center justify-between text-xs p-2.5 rounded-lg bg-amber-50 border border-amber-100 shadow-sm">
+                                        <div class="flex items-center gap-2">
+                                            <span class="w-3 h-3 rounded-full bg-amber-500 inline-block"></span>
+                                            <span class="font-bold text-slate-700">③ 売却諸経費</span>
+                                        </div>
+                                        <span class="font-extrabold text-amber-700" id="legend-exp-pct-sale">0%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Detail cost list -->
+                        <div class="space-y-2.5 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                            <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider">諸費用内訳と法的要件</h4>
+                            
+                            <div class="flex items-center justify-between text-xs py-1.5 border-b border-slate-200">
+                                <span class="text-slate-600">仲介手数料（税込上限）</span>
+                                <span class="font-bold text-slate-900" id="val-agent-fee-sale">0 万円</span>
+                            </div>
+
+                            <div class="flex items-center justify-between text-xs py-1.5 border-b border-slate-200">
+                                <span class="text-slate-600">契約用 印紙税（軽減適用）</span>
+                                <span class="font-bold text-slate-900" id="val-stamp-duty-sale">0 万円</span>
+                            </div>
+
+                            <div class="flex items-center justify-between text-xs py-1.5 border-b border-slate-200">
+                                <span class="text-slate-600">登記費用・司法書士報酬</span>
+                                <span class="font-bold text-slate-900">2.5 万円</span>
+                            </div>
+
+                            <div class="flex items-center justify-between text-xs py-1.5 border-b border-slate-200">
+                                <span class="text-slate-600">譲渡所得税（各種控除引去後）</span>
+                                <span class="font-bold text-slate-900" id="val-capital-gain-tax-sale">0 万円</span>
+                            </div>
+
+                            <div class="flex items-center justify-between text-xs text-slate-600">
+                                <span>その他実費 (引越し・測量・解体等)</span>
+                                <span class="font-bold text-slate-900" id="val-display-other-sale">0 万円</span>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- PURCHASE SIMULATOR -->
+            <div id="sim-container-purchase" class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 md:p-8 hidden">
+                <div class="mb-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-xl font-extrabold text-slate-900">購入諸費用＆総資金シミュレーター</h2>
+                        <p class="text-slate-500 text-sm mt-1">物件本体価格以外にかかる多種多様な「諸費用」を算出。リフォーム工事代なども見越した総資金額を把握します。</p>
+                    </div>
+                    <div class="bg-emerald-50 border border-emerald-200 rounded-lg py-2 px-4 flex items-center gap-2">
+                        <span class="text-xs font-bold text-emerald-900">現在の購入対象:</span>
+                        <span class="text-xs font-extrabold text-emerald-900 bg-white px-2 py-0.5 rounded shadow-sm" id="sim-purchase-type-badge">マンション</span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                    <!-- Left: Inputs -->
+                    <div class="lg:col-span-5 space-y-5 bg-slate-50 p-6 rounded-xl border border-slate-200">
+                        <h3 class="text-sm font-bold text-slate-900 border-b border-slate-200 pb-2">条件を入力</h3>
+                        
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1.5">検討中の物件価格 (万円)</label>
+                            <div class="relative rounded-md shadow-sm">
+                                <input type="number" id="sim-property-price" value="4000" class="w-full bg-white border border-slate-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-emerald-900 focus:border-transparent text-sm font-bold" min="1" max="100000">
+                                <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                    <span class="text-slate-500 text-xs">万円</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="flex items-center justify-between mb-1.5">
+                                <label class="block text-xs font-bold text-slate-700">準備できる自己資金/頭金 (万円)</label>
+                                <span class="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded">ローン額に影響</span>
+                            </div>
+                            <div class="relative rounded-md shadow-sm">
+                                <input type="number" id="sim-down-payment" value="800" class="w-full bg-white border border-slate-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-emerald-900 focus:border-transparent text-sm font-bold" min="0" max="100000">
+                                <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                    <span class="text-slate-500 text-xs">万円</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1.5">物件の仲介手数料形態</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <label class="border border-slate-300 rounded-lg p-2.5 flex items-center justify-center gap-2 cursor-pointer bg-white animate-transition" id="lbl-fee-exist">
+                                    <input type="radio" name="sim-agent-option" value="standard" checked onchange="calculateFinancialsPurchase()" class="text-emerald-900 focus:ring-emerald-900">
+                                    <span class="text-xs font-bold text-slate-800">仲介手数料あり</span>
+                                </label>
+                                <label class="border border-slate-300 rounded-lg p-2.5 flex items-center justify-center gap-2 cursor-pointer bg-white animate-transition" id="lbl-fee-none">
+                                    <input type="radio" name="sim-agent-option" value="free" onchange="calculateFinancialsPurchase()" class="text-emerald-900 focus:ring-emerald-900">
+                                    <span class="text-xs font-bold text-slate-800">仲介手数料なし</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1.5">購入時リフォーム・オプション工事費用 (万円)</label>
+                            <div class="relative rounded-md shadow-sm">
+                                <input type="number" id="sim-renovation-price" value="100" class="w-full bg-white border border-slate-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-emerald-900 focus:border-transparent text-sm font-bold" min="0" max="100000">
+                                <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                    <span class="text-slate-500 text-xs">万円</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 追加：固定資産税・都市計画税の清算金 -->
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1.5">固定資産税・都市計画税の清算金 (万円)</label>
+                            <div class="relative rounded-md shadow-sm">
+                                <input type="number" id="sim-tax-adjustment" value="15" class="w-full bg-white border border-slate-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-emerald-900 focus:border-transparent text-sm font-bold" min="0" max="10000">
+                                <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                    <span class="text-slate-500 text-xs">万円</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 追加：管理費等の清算金 -->
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1.5">管理費等の清算金 (万円)</label>
+                            <div class="relative rounded-md shadow-sm">
+                                <input type="number" id="sim-maintenance-adjustment" value="6" class="w-full bg-white border border-slate-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-emerald-900 focus:border-transparent text-sm font-bold" min="0" max="10000">
+                                <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                    <span class="text-slate-500 text-xs">万円</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1.5">引越し代・家具家電購入費等 (万円)</label>
+                            <div class="relative rounded-md shadow-sm">
+                                <input type="number" id="sim-other-moving-price" value="80" class="w-full bg-white border border-slate-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-emerald-900 focus:border-transparent text-sm font-bold" min="0" max="5000">
+                                <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                    <span class="text-slate-500 text-xs">万円</span>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Right: Outputs -->
+                    <div class="lg:col-span-7 flex flex-col justify-between space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4 shadow-sm">
+                                <span class="text-[10px] text-emerald-800 font-bold block">① 住宅ローン必要借入額</span>
+                                <p class="text-2xl font-black text-emerald-600 mt-1" id="sum-net-cash-purchase">0 <span class="text-xs font-normal text-slate-700">万円</span></p>
+                            </div>
+                            <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 shadow-sm">
+                                <span class="text-[10px] text-amber-800 font-bold block">② 必要諸費用 合計</span>
+                                <p class="text-2xl font-black text-amber-600 mt-1" id="sum-expenses-purchase">0 <span class="text-xs font-normal text-slate-700">万円</span></p>
+                            </div>
+                            <div class="bg-blue-50 border border-blue-100 rounded-xl p-4 shadow-sm">
+                                <span class="text-[10px] text-blue-800 font-bold block">③ 総必要資金 (物件+諸費等)</span>
+                                <p class="text-2xl font-black text-blue-600 mt-1" id="sum-deductions-purchase">0 <span class="text-xs font-normal text-slate-700">万円</span></p>
+                            </div>
+                        </div>
+
+                        <!-- Graphical Financial Flows -->
+                        <div class="bg-white rounded-xl border border-slate-200 p-4 md:p-6 shadow-inner flex flex-col items-center">
+                            <h4 class="text-xs font-bold text-slate-600 uppercase tracking-wider mb-4 flex items-center gap-1.5 self-start">
+                                <i class="fa-solid fa-chart-pie text-emerald-600"></i> 総必要資金に占める資金構成（円グラフ）
+                            </h4>
+                            
+                            <div class="flex flex-col md:flex-row items-center justify-center gap-8 w-full py-2">
+                                <div class="relative w-44 h-44 shrink-0">
+                                    <svg viewBox="0 0 36 36" class="w-full h-full transform -rotate-90">
+                                        <circle cx="18" cy="18" r="15.915" fill="none" stroke="#f1f5f9" stroke-width="4"></circle>
+                                        <circle id="slice-expenses-purchase" cx="18" cy="18" r="15.915" fill="none" stroke="#f59e0b" stroke-width="4.2" stroke-dasharray="0 100" stroke-dashoffset="0" stroke-linecap="round"></circle>
+                                        <circle id="slice-loan-purchase" cx="18" cy="18" r="15.915" fill="none" stroke="#3b82f6" stroke-width="4.2" stroke-dasharray="0 100" stroke-dashoffset="0" stroke-linecap="round"></circle>
+                                        <circle id="slice-cash-purchase" cx="18" cy="18" r="15.915" fill="none" stroke="#10b981" stroke-width="4.2" stroke-dasharray="0 100" stroke-dashoffset="0" stroke-linecap="round"></circle>
+                                    </svg>
+                                    <div class="absolute inset-0 flex flex-col items-center justify-center text-center">
+                                        <span class="text-[10px] text-slate-500 font-bold tracking-wider">ローン負担比率</span>
+                                        <span class="text-2xl font-black text-slate-900" id="donut-cash-percent-purchase">0%</span>
+                                    </div>
+                                </div>
+
+                                <div class="space-y-3 w-full max-w-xs">
+                                    <div class="flex items-center justify-between text-xs p-2.5 rounded-lg bg-emerald-50 border border-emerald-100 shadow-sm">
+                                        <div class="flex items-center gap-2">
+                                            <span class="w-3 h-3 rounded-full bg-emerald-500 inline-block"></span>
+                                            <span class="font-bold text-slate-700">① 準備自己資金</span>
+                                        </div>
+                                        <span class="font-extrabold text-emerald-700" id="legend-cash-pct-purchase">0%</span>
+                                    </div>
+                                    <div class="flex items-center justify-between text-xs p-2.5 rounded-lg bg-blue-50 border border-blue-100 shadow-sm">
+                                        <div class="flex items-center gap-2">
+                                            <span class="w-3 h-3 rounded-full bg-blue-500 inline-block"></span>
+                                            <span class="font-bold text-slate-700">② 住宅ローン借入</span>
+                                        </div>
+                                        <span class="font-extrabold text-blue-700" id="legend-loan-pct-purchase">0%</span>
+                                    </div>
+                                    <div class="flex items-center justify-between text-xs p-2.5 rounded-lg bg-amber-50 border border-amber-100 shadow-sm">
+                                        <div class="flex items-center gap-2">
+                                            <span class="w-3 h-3 rounded-full bg-amber-500 inline-block"></span>
+                                            <span class="font-bold text-slate-700">③ 購入諸費用＆その他工事等</span>
+                                        </div>
+                                        <span class="font-extrabold text-amber-700" id="legend-exp-pct-purchase">0%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="space-y-2.5 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                            <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider">諸費用・資金使途 精密内訳</h4>
+                            <div class="flex items-center justify-between text-xs py-1.5 border-b border-slate-200">
+                                <span class="text-slate-600">仲介手数料（税込上限目安）</span>
+                                <span class="font-bold text-slate-900" id="val-agent-fee-purchase">0 万円</span>
+                            </div>
+                            <div class="flex items-center justify-between text-xs py-1.5 border-b border-slate-200">
+                                <span class="text-slate-600">登記免許税・司法書士報酬目安</span>
+                                <span class="font-bold text-slate-900" id="val-registry-purchase">0 万円</span>
+                            </div>
+                            <div class="flex items-center justify-between text-xs py-1.5 border-b border-slate-200">
+                                <span class="text-slate-600">契約用 印紙税（軽減適用）</span>
+                                <span class="font-bold text-slate-900" id="val-stamp-duty-purchase">0 万円</span>
+                            </div>
+                            <div class="flex items-center justify-between text-xs py-1.5 border-b border-slate-200">
+                                <div class="flex items-center gap-1">
+                                    <span class="text-slate-600">ローン事務手数料・保証料</span>
+                                    <span class="text-[9px] bg-emerald-100 text-emerald-800 px-1 rounded">融資額2.2%想定</span>
+                                </div>
+                                <span class="font-bold text-slate-900" id="val-loan-process-fee-purchase">0 万円</span>
+                            </div>
+                            <div class="flex items-center justify-between text-xs py-1.5 border-b border-slate-200">
+                                <span class="text-slate-600">火災・地震保険料（一括支払想定）</span>
+                                <span class="font-bold text-slate-900" id="val-insurance-fee-purchase">0 万円</span>
+                            </div>
+                            <!-- 追加：固定資産税・都市計画税の清算金 -->
+                            <div class="flex items-center justify-between text-xs py-1.5 border-b border-slate-200">
+                                <span class="text-slate-600">固定資産税・都市計画税の清算金</span>
+                                <span class="font-bold text-slate-900" id="val-tax-adjustment-purchase">0 万円</span>
+                            </div>
+                            <!-- 追加：管理費等の清算金 -->
+                            <div class="flex items-center justify-between text-xs py-1.5 border-b border-slate-200">
+                                <span class="text-slate-600">管理費等の清算金</span>
+                                <span class="font-bold text-slate-900" id="val-maintenance-adjustment-purchase">0 万円</span>
+                            </div>
+                            <div class="flex items-center justify-between text-xs text-slate-600">
+                                <span>その他実費 (リフォーム + 引越し/家具など)</span>
+                                <span class="font-bold text-slate-900" id="val-display-other-purchase">0 万円</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 3: NEXT PLAN / REPURCHASE OR LOAN SECTION (Double Content toggled based on Mode) -->
+        <section id="content-repurchase" class="tab-content hidden">
+            <!-- SALE MODE: 住み替え(買い替え)予算試算 -->
+            <div id="nextplan-container-sale" class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 md:p-8">
+                <div class="mb-6">
+                    <h2 class="text-xl font-extrabold text-slate-900">買い替え（住み替え）予算・ローン試算</h2>
+                    <p class="text-slate-500 text-sm mt-1">売却で得た手残り金額を新居購入の頭金に充てる計画を設計します。</p>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                    <div class="lg:col-span-5 space-y-5 bg-slate-50 p-6 rounded-xl border border-slate-200">
+                        <h3 class="text-sm font-bold text-slate-900 border-b border-slate-200 pb-2">新居購入計画の入力</h3>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1.5">新居の購入希望価格 (万円)</label>
+                            <div class="relative rounded-md shadow-sm">
+                                <input type="number" id="rep-price-sale" value="4500" class="w-full bg-white border border-slate-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-900 focus:border-transparent text-sm font-bold" min="1" max="100000" oninput="calculateRepurchaseSale()">
+                                <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                    <span class="text-slate-500 text-xs">万円</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1.5">売却手残りから頭金に充てる額 (万円)</label>
+                            <div class="relative rounded-md shadow-sm">
+                                <input type="number" id="rep-down-payment-sale" value="1000" class="w-full bg-white border border-slate-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-900 focus:border-transparent text-sm font-bold" min="0" oninput="calculateRepurchaseSale()">
+                            </div>
+                            <div class="flex justify-between items-center mt-1.5">
+                                <span class="text-[10px] text-slate-500" id="lbl-max-handover-sale">売却手残り上限：1,000万円</span>
+                                <button onclick="applyAllHandoverSale()" class="text-[10px] text-blue-900 font-bold hover:underline">全額（上限）を充当する</button>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1.5">新居の種類（購入費用割合に影響）</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <label class="border border-slate-300 rounded-lg p-2 flex items-center gap-2 cursor-pointer bg-white" id="lbl-rep-condo">
+                                    <input type="radio" name="rep-type" value="condo" checked onchange="calculateRepurchaseSale()" class="text-blue-900">
+                                    <div class="text-left">
+                                        <p class="text-xs font-bold text-slate-800">新築/中古マンション</p>
+                                        <p class="text-[9px] text-slate-500">諸経費目安：約7%</p>
+                                    </div>
+                                </label>
+                                <label class="border border-slate-300 rounded-lg p-2 flex items-center gap-2 cursor-pointer bg-white" id="lbl-rep-house">
+                                    <input type="radio" name="rep-type" value="house" onchange="calculateRepurchaseSale()" class="text-blue-900">
+                                    <div class="text-left">
+                                        <p class="text-xs font-bold text-slate-800">新築/中古一戸建て</p>
+                                        <p class="text-[9px] text-slate-500">諸経費目安：約9%</p>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1">返済期間 (年)</label>
+                                <select id="rep-loan-year-sale" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs font-bold focus:ring-2 focus:ring-blue-900" onchange="calculateRepurchaseSale()">
+                                    <option value="35" selected>35年</option>
+                                    <option value="30">30年</option>
+                                    <option value="25">25年</option>
+                                    <option value="20">20年</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1">想定金利 (%)</label>
+                                <input type="number" id="rep-loan-interest-sale" value="0.75" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs font-bold focus:ring-2 focus:ring-blue-900" step="0.05" min="0.1" max="10" oninput="calculateRepurchaseSale()">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="lg:col-span-7 flex flex-col justify-between space-y-6">
+                        <div class="bg-slate-50 rounded-xl p-6 border border-slate-200">
+                            <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wider mb-4 flex items-center gap-2">
+                                <i class="fa-solid fa-coins text-emerald-600"></i> 新居買い替え資金試算結果
+                            </h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div class="space-y-4">
+                                    <div class="border-l-4 border-indigo-600 pl-3">
+                                        <span class="text-[10px] text-slate-500 block">新居購入時諸費用（手数料等）</span>
+                                        <p class="text-lg font-bold text-slate-800 mt-0.5" id="val-rep-expenses-sale">0 万円</p>
+                                    </div>
+                                    <div class="border-l-4 border-indigo-600 pl-3">
+                                        <span class="text-[10px] text-slate-500 block">自己調達資金（頭金充当額）</span>
+                                        <p class="text-lg font-bold text-slate-800 mt-0.5" id="val-rep-down-applied-sale">0 万円</p>
+                                    </div>
+                                    <div class="border-l-4 border-emerald-600 pl-3 bg-emerald-50 py-1.5 rounded-r">
+                                        <span class="text-[10px] text-emerald-800 font-bold block">必要新規住宅ローン借入額</span>
+                                        <p class="text-2xl font-black text-emerald-600 mt-0.5" id="val-rep-loan-required-sale">0 万円</p>
+                                    </div>
+                                </div>
+
+                                <div class="space-y-4 bg-white p-4 rounded-lg border border-slate-200">
+                                    <div class="text-center">
+                                        <span class="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">新ローン毎月返済目安</span>
+                                        <p class="text-2xl font-black text-blue-900 mt-1" id="val-monthly-payment-sale">0 円</p>
+                                    </div>
+                                    <div class="space-y-1.5 pt-3 border-t border-slate-100 text-xs">
+                                        <div class="flex justify-between text-[10px]">
+                                            <span class="text-slate-500">条件</span>
+                                            <span class="font-bold text-slate-800" id="lbl-repayment-conditions-sale">35年 / 0.75%</span>
+                                        </div>
+                                        <div class="flex justify-between text-[10px]">
+                                            <span class="text-slate-500">年間総返済額</span>
+                                            <span class="font-bold text-slate-800" id="val-annual-payment-sale">0 万円</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Advisory for Repurchase -->
+                        <div class="p-5 rounded-xl border flex gap-3 items-start" id="advisory-panel-sale">
+                            <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5" id="advisory-icon-bg-sale">
+                                <i class="fa-solid text-sm" id="advisory-icon-sale"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-xs font-bold" id="advisory-title-sale">健全性アドバイス</h4>
+                                <p class="text-[11px] mt-1 leading-relaxed" id="advisory-text-sale">売却計画を進めて、手残り額を確定させてみましょう。</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PURCHASE MODE: 住宅ローン返済＆返済負担率診断 (拡張版) -->
+            <div id="nextplan-container-purchase" class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 md:p-8 hidden">
+                <div class="mb-6">
+                    <h2 class="text-xl font-extrabold text-slate-900">住宅ローン返済＆維持費一元化負担率診断</h2>
+                    <p class="text-slate-500 text-sm mt-1">世帯年収に加え、月々の「管理費・積立金」等も加味した、家計にゆとりを持たせられる実質的な「総返済負担率」を判定します。</p>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                    <!-- 左カラム：設定項目 -->
+                    <div class="lg:col-span-5 space-y-5 bg-slate-50 p-6 rounded-xl border border-slate-200">
+                        <h3 class="text-sm font-bold text-slate-900 border-b border-slate-200 pb-2">金利・借入設定</h3>
+                        <div>
+                            <div class="flex items-center justify-between mb-1.5">
+                                <label class="block text-xs font-bold text-slate-700">住宅ローン借入予定額 (万円)</label>
+                                <span class="text-[9px] text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded font-bold">シミュレーター値と同期可能</span>
+                            </div>
+                            <div class="relative rounded-md shadow-sm">
+                                <input type="number" id="rep-price-purchase" value="3500" class="w-full bg-white border border-slate-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-emerald-900 focus:border-transparent text-sm font-bold" min="1" max="100000" oninput="calculateRepurchasePurchase()">
+                                <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                    <span class="text-slate-500 text-xs">万円</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1.5">世帯総年収 (万円・額面)</label>
+                            <div class="relative rounded-md shadow-sm">
+                                <input type="number" id="rep-annual-income-purchase" value="650" class="w-full bg-white border border-slate-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-emerald-900 focus:border-transparent text-sm font-bold" min="1" max="100000" oninput="calculateRepurchasePurchase()">
+                                <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                    <span class="text-slate-500 text-xs">万円</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1">返済期間 (年)</label>
+                                <select id="rep-loan-year-purchase" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs font-bold focus:ring-2 focus:ring-emerald-900" onchange="calculateRepurchasePurchase()">
+                                    <option value="40">40年</option>
+                                    <option value="35" selected>35年</option>
+                                    <option value="30">30年</option>
+                                    <option value="25">25年</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1">想定金利 (%)</label>
+                                <input type="number" id="rep-loan-interest-purchase" value="0.55" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs font-bold focus:ring-2 focus:ring-emerald-900" step="0.05" min="0.01" max="10" oninput="calculateRepurchasePurchase()">
+                            </div>
+                        </div>
+
+                        <!-- 追加：マンション・一戸建ての維持管理費設定（月額） -->
+                        <div class="border-t border-slate-200 pt-4 mt-3">
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="text-xs font-bold text-indigo-900 flex items-center gap-1.5">
+                                    <i class="fa-solid fa-building"></i> マンション・戸建て維持費 (月額)
+                                </span>
+                                <span class="text-[9px] bg-indigo-100 text-indigo-800 px-1.5 py-0.5 rounded font-bold">総額負担率に影響</span>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2 mt-2">
+                                <div>
+                                    <label class="block text-[10px] text-slate-500 font-bold mb-1">管理費 (円)</label>
+                                    <input type="number" id="rep-maint-fee-purchase" value="15000" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs font-bold focus:ring-2 focus:ring-emerald-900" oninput="calculateRepurchasePurchase()">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] text-slate-500 font-bold mb-1">修繕積立金 (円)</label>
+                                    <input type="number" id="rep-repair-fee-purchase" value="15000" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs font-bold focus:ring-2 focus:ring-emerald-900" oninput="calculateRepurchasePurchase()">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] text-slate-500 font-bold mb-1">駐車場代金 (円)</label>
+                                    <input type="number" id="rep-parking-fee-purchase" value="10000" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs font-bold focus:ring-2 focus:ring-emerald-900" oninput="calculateRepurchasePurchase()">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] text-slate-500 font-bold mb-1">その他経費 (円)</label>
+                                    <input type="number" id="rep-other-fee-purchase" value="0" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs font-bold focus:ring-2 focus:ring-emerald-900" oninput="calculateRepurchasePurchase()">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="pt-2">
+                            <button onclick="pullSimulatorValuePurchase()" class="w-full py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-extrabold rounded-lg border border-emerald-200 transition flex items-center justify-center gap-1.5">
+                                <i class="fa-solid fa-arrows-rotate"></i> シミュレーターから借入額を再同期
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 右カラム：シミュレーション結果（ローン単体 vs 総支払額） -->
+                    <div class="lg:col-span-7 flex flex-col justify-between space-y-6">
+                        <div class="bg-slate-50 rounded-xl p-6 border border-slate-200">
+                            <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wider mb-4 flex items-center gap-2">
+                                <i class="fa-solid fa-coins text-emerald-600"></i> 住宅ローン＆実質月額支出シミュレーション
+                            </h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                
+                                <!-- 1. 総額支払い（管理費・維持費込） -->
+                                <div class="space-y-4 bg-gradient-to-br from-emerald-600 to-teal-800 p-5 rounded-xl border border-emerald-700 shadow-md text-white text-center flex flex-col justify-center relative overflow-hidden">
+                                    <div class="absolute right-0 top-0 opacity-10 text-[80px] font-black -mr-4 -mt-4">
+                                        <i class="fa-solid fa-house-circle-check"></i>
+                                    </div>
+                                    <div class="relative z-10">
+                                        <span class="text-[10px] text-emerald-100 font-black uppercase tracking-wider block">毎月の支払総額（目安）</span>
+                                        <span class="text-[9px] bg-white/20 text-white px-2 py-0.5 rounded-full mt-0.5 inline-block">管理費・修繕費・駐車場代等込</span>
+                                        <p class="text-3xl font-black mt-2" id="val-monthly-total-payment-purchase">0 円</p>
+                                        
+                                        <div class="space-y-1.5 pt-4 mt-4 border-t border-white/20 text-xs">
+                                            <div class="flex justify-between">
+                                                <span class="text-emerald-100">実質年間支払額</span>
+                                                <span class="font-extrabold" id="val-annual-total-payment-purchase">0 万円</span>
+                                            </div>
+                                            <div class="flex justify-between">
+                                                <span class="text-emerald-100">総支払返済負担率</span>
+                                                <span class="font-black text-amber-300 text-sm" id="val-total-repayment-ratio-purchase">0%</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 2. 住宅ローン単体 -->
+                                <div class="space-y-4 bg-white p-5 rounded-xl border border-slate-200 shadow-sm text-center flex flex-col justify-center">
+                                    <span class="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">住宅ローンのみの返済額（目安）</span>
+                                    <p class="text-2xl font-black text-slate-800 mt-1" id="val-monthly-payment-purchase">0 円</p>
+                                    
+                                    <div class="space-y-1.5 pt-4 mt-4 border-t border-slate-100 text-xs">
+                                        <div class="flex justify-between">
+                                            <span class="text-slate-500">ローン年間返済額</span>
+                                            <span class="font-extrabold text-slate-800" id="val-annual-payment-purchase">0 万円</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-slate-500">ローン返済負担率</span>
+                                            <span class="font-bold text-slate-800" id="val-repayment-ratio-purchase">0%</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-slate-500">完済までの総返済額</span>
+                                            <span class="font-extrabold text-slate-900" id="val-total-repayment-purchase">0 万円</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+
+                            <!-- 進捗可視化（総返済負担率基準） -->
+                            <div class="mt-6 pt-4 border-t border-slate-200">
+                                <div class="flex justify-between items-center mb-1 text-xs text-slate-500 font-bold">
+                                    <span>維持費込の総支払返済負担率ゲージ</span>
+                                    <span id="ratio-level-label-purchase" class="text-slate-700">判定中</span>
+                                </div>
+                                <div class="w-full bg-slate-200 h-3 rounded-full overflow-hidden">
+                                    <div id="ratio-progress-bar-purchase" class="bg-emerald-500 h-full transition-all duration-300" style="width: 0%"></div>
+                                </div>
+                                <div class="text-[10px] text-slate-400 mt-1.5 flex justify-between">
+                                    <span>超安全（20%以下）</span>
+                                    <span>標準（20〜25%）</span>
+                                    <span>注意（25〜30%）</span>
+                                    <span>警戒（30%超）</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="p-5 rounded-xl border flex gap-3 items-start" id="advisory-panel-purchase">
+                            <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5" id="advisory-icon-bg-purchase">
+                                <i class="fa-solid text-sm" id="advisory-icon-purchase"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-xs font-bold" id="advisory-title-purchase">健全性アドバイス</h4>
+                                <p class="text-[11px] mt-1 leading-relaxed" id="advisory-text-purchase">適正返済プランを進めてみましょう。</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 4: DIAGNOSIS MATCHING SECTION (Toggled structure) -->
+        <section id="content-diagnosis" class="tab-content hidden">
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 md:p-8">
+                
+                <div id="diagnosis-questionnaire">
+                    <div class="mb-6">
+                        <span class="bg-theme-badge text-theme-badge text-xs font-bold px-2.5 py-1 rounded-full">適性アドバイザー</span>
+                        <h2 class="text-xl font-extrabold text-slate-900 mt-2" id="diagnosis-main-heading">媒介契約マッチング診断</h2>
+                        <p class="text-slate-500 text-sm mt-1" id="diagnosis-sub-heading">あなたの希望の進め方に最も適した媒介形式やプランを診断します。</p>
+                    </div>
+
+                    <!-- Diagnosis Cards (Dynamically shown based on mode) -->
+                    <div class="space-y-4 max-w-2xl mx-auto my-8" id="diagnosis-cards-container">
+                        <!-- Loaded dynamically via JS -->
+                    </div>
+
+                    <div class="text-center mt-6">
+                        <button onclick="calculateDiagnosis()" class="bg-theme-primary text-white text-sm font-bold px-8 py-3.5 rounded-xl hover:bg-theme-primary-hover transition shadow-md flex items-center gap-2 mx-auto">
+                            診断結果を計算する <i class="fa-solid fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Diagnosis Results Display -->
+                <div id="diagnosis-result" class="hidden max-w-3xl mx-auto space-y-6">
+                    <div class="text-center mb-6">
+                        <span class="text-xs font-bold text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full uppercase tracking-wider">診断結果</span>
+                        <h2 class="text-2xl font-black text-slate-900 mt-2">あなたにおすすめの戦略</h2>
+                    </div>
+
+                    <!-- Recommended Block -->
+                    <div class="bg-gradient-to-r from-slate-900 to-slate-950 text-white rounded-2xl p-6 md:p-8 shadow-lg relative overflow-hidden" id="rec-hero-block">
+                        <div class="absolute right-0 bottom-0 opacity-10 text-[120px] font-black -mr-10 -mb-10">
+                            <i class="fa-solid fa-file-signature"></i>
+                        </div>
+                        <div class="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                            <div>
+                                <span class="bg-amber-400 text-slate-950 text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wide">MATCH RECOMMENDATION</span>
+                                <h3 class="text-3xl font-extrabold mt-1" id="rec-contract-title">専任媒介契約</h3>
+                                <p class="text-slate-300 text-xs mt-1" id="rec-contract-sub">バランスが良い標準的な取引契約です。</p>
+                            </div>
+                            <div class="bg-white/10 px-4 py-2.5 rounded-lg border border-white/20 shrink-0">
+                                <p class="text-[10px] text-slate-300 font-bold uppercase" id="rec-meta-label">指定流通機関登録(レインズ)</p>
+                                <p class="text-sm font-extrabold text-white" id="rec-contract-reins">契約締結から7日以内</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SUMRISE相談誘導バナー (診断結果表示直後に設置) -->
+                    <div class="text-center py-2">
+                        <a href="https://s.lmes.jp/landing-qr/2009193856-NCV8FdBi?uLand=nXyykD" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center gap-3 bg-emerald-600 hover:bg-emerald-500 text-white text-base font-black px-8 py-4 rounded-2xl shadow-xl transition-all duration-300 hover:scale-105 border-2 border-emerald-400 w-full md:w-auto">
+                            <i class="fa-brands fa-line text-2xl"></i>
+                            <div class="text-left">
+                                <span class="text-xs block text-emerald-100 font-bold">無料でお手軽チャット相談！</span>
+                                <span class="text-base md:text-lg">SUMRISE公式LINEで診断結果を相談する</span>
+                            </div>
+                            <i class="fa-solid fa-circle-chevron-right text-xl"></i>
+                        </a>
+                    </div>
+
+                    <!-- Three Options Grid -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8" id="diagnosis-options-grid">
+                        <!-- Loaded dynamically via JS -->
+                    </div>
+
+                    <!-- Reset Button -->
+                    <div class="text-center mt-8">
+                        <button onclick="resetDiagnosis()" class="text-sm font-bold text-theme-primary hover:underline flex items-center gap-2 mx-auto transition-all">
+                            <i class="fa-solid fa-rotate-left"></i> もう一度診断を行う
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer (権利表記と無断転載・複製利用禁止の追記版) -->
+    <footer class="bg-slate-900 text-slate-400 py-12 px-4 mt-12 border-t border-slate-800 text-center">
+        <div class="max-w-7xl mx-auto space-y-5">
+            <p class="text-xs leading-relaxed max-w-4xl mx-auto">※本シミュレーターおよび各種やることリストは、不動産売却・購入における一般的な目安や概算を示すものであり、実際の取引内容、金融機関、税務署での特例審査の結果等により変動する場合があります。具体的な住宅ローン・売買判断や税額の最終決定は、必ず専門の税理士・司法書士、金融機関窓口などへ直接ご相談ください。</p>
+            
+            <div class="border-t border-slate-800/80 pt-4 max-w-4xl mx-auto">
+                <p class="text-[11px] leading-relaxed text-slate-500">
+                    【知的財産権および著作権の保護について】<br>
+                    本シミュレーターのプログラム、システム構成、計算ロジック、デザイン、テキスト、およびそれに付随する一切の権利は、<strong class="text-slate-400">株式会社SUMRISE</strong>に帰属します。<br>
+                    当社の書面による事前の許諾なしに、本ツールの一部または全部を複製、転載、公衆送信、改変、配布、譲渡、または競合サービス・二次成果物等への無断利用・商用利用を行うことは法律で固く禁じられています。
+                </p>
+            </div>
+            
+            <p class="text-xs text-slate-600">© 2026 株式会社SUMRISE. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <!-- JavaScript Execution Logic -->
+    <script>
+        // Default Settings
+        let currentMode = 'sale'; // 'sale' (売却) or 'purchase' (購入)
+        let selectedPropertyTypeSale = 'condo'; // 'condo', 'house', 'land'
+        let selectedPropertyTypePurchase = 'condo'; // 'condo', 'house', 'land'
+        
+        let currentPhaseSale = 1;
+        let currentPhasePurchase = 1;
+        
+        let globalNetCashSale = 1835; // Shared hand-over money
+        let globalRequiredLoanPurchase = 3332; // Shared loan need
+
+        // Progress structure (Separate for sale and purchase to ensure clean data state)
+        const userProgressSale = {
+            condo: { 1: [0,0,0,0], 2: [0,0,0,0], 3: [0,0,0,0], 4: [0,0,0,0] },
+            house: { 1: [0,0,0,0], 2: [0,0,0,0], 3: [0,0,0,0], 4: [0,0,0,0] },
+            land: { 1: [0,0,0,0], 2: [0,0,0,0], 3: [0,0,0,0], 4: [0,0,0,0] }
+        };
+        const userProgressPurchase = {
+            condo: { 1: [0,0,0,0], 2: [0,0,0,0], 3: [0,0,0,0], 4: [0,0,0,0] },
+            house: { 1: [0,0,0,0], 2: [0,0,0,0], 3: [0,0,0,0], 4: [0,0,0,0] },
+            land: { 1: [0,0,0,0], 2: [0,0,0,0], 3: [0,0,0,0], 4: [0,0,0,0] }
+        };
+
+        // Note keeping
+        let userNotesSale = {};
+        let userNotesPurchase = {};
+
+        // Questionnaire matching answers
+        const answersSale = { 1: null, 2: null, 3: null };
+        const answersPurchase = { 1: null, 2: null, 3: null };
+
+        // Database structures (LINE Link embedding inside the checklist elements)
+        const lineLinkHTML = '<a href="https://s.lmes.jp/landing-qr/2009193856-NCV8FdBi?uLand=nXyykD" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline hover:text-blue-800 font-extrabold inline-flex items-center gap-1">SUMRISEへ無料査定を依頼する <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i></a>';
+        const lineConsultLinkHTML = '<a href="https://s.lmes.jp/landing-qr/2009193856-NCV8FdBi?uLand=nXyykD" target="_blank" rel="noopener noreferrer" class="text-emerald-600 underline hover:text-emerald-800 font-extrabold inline-flex items-center gap-1">SUMRISEに予算とローン相談をする <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i></a>';
+
+        const roadmapDB_Sale = {
+            condo: {
+                badge: "マンション売却",
+                phases: {
+                    1: {
+                        title: "準備・査定フェーズ",
+                        desc: "マンションの相場をポータルサイト等で調査し、管理組合の管理規約の所在を確認しながら、査定相談へ移行する段階です。",
+                        proTip: "マンション売却の鍵は「類似した部屋の最近の売り出し履歴」です。階数、向き、角部屋かどうかによって査定が上下するため、実績が豊富な企業へ訪問査定を依頼しましょう。",
+                        docs: ["登記済証（権利証）または登記識別情報通知書", "マンション管理規約・使用細則", "維持管理費・修繕積立金の改定予定表", "購入時のパンフレットや間取り図"],
+                        checklist: ["売却したい理由と希望の住み替え時期の決定", "レインズ・ポータル等での相場調査", "マンションローン残高、滞納している管理費等がないか確認", lineLinkHTML]
+                    },
+                    2: {
+                        title: "媒介契約・売り出し",
+                        desc: "媒介契約を結び、売出しを開始。内覧（見学）に備えて専有部の魅力を高めます。",
+                        proTip: "マンションの内覧では、エントランスなどの共用部の清潔さもチェックされます。また、室内は不要な荷物をトランルーム等へ預け、明るく・広く演出しましょう。",
+                        docs: ["媒介契約書（不動産会社締結用）", "物件状況等報告書・付帯設備表", "マンション管理組合への売却通知届"],
+                        checklist: ["媒介契約タイプ（一般、専任、専属専任）を選択して締結する", "買主の値下げ交渉を見越した売り出し希望価格を決定する", "玄関、キッチン・浴室など水回りの徹底清掃・消臭を行う", "週末の内覧希望日にいつでも対応できるようスケジュール調整"]
+                    },
+                    3: {
+                        title: "条件交渉・売買契約",
+                        desc: "購入希望者から買付証明書を受け取り、交渉。合意したら宅地建物取引士立ち会いのもと契約します。",
+                        proTip: "買主が住宅ローンの本審査に通らなかった場合に契約が白紙に戻る「ローン特約」期限と解除要件をしっかり事前確認しておきましょう。",
+                        docs: ["売買契約書・重要事項説明書", "身分証明書・実印", "印鑑証明書（発行から3ヶ月以内）", "管理費等の日割り精算書"],
+                        checklist: ["買付証明書の内容（指値、引き渡し時期）を交渉して合意する", "重要事項説明書に「瑕疵（欠陥）の有無」や特約条項の漏れがないか確認", "売買契約書に署名捺印し、手付金（売買価格の5%〜10%目安）を受領する", "仲介手数料の半額分を支払う（契約時半分が一般的）"]
+                    },
+                    4: {
+                        title: "決済・引き渡し",
+                        desc: "残代金の入金、住宅ローン完済、抵当権抹消、鍵の受け渡しを行って取引を完了させます。",
+                        proTip: "修繕積立金や管理費は、決済当日を基準に日割りで買主と精算することが一般的です。",
+                        docs: ["実印・印鑑証明書（3ヶ月以内）", "管理費・修繕積立金の精算書", "マンション引き渡し用の鍵（すべてのスペアキー含む）", "取扱説明書・リモコン類一式"],
+                        checklist: ["引き渡し日までに引越しを完了させ、荷物を完全撤去する", "買主、銀行、司法書士、不動産会社を交えて決済を行う", "受け取った残代金でローンの一括返済、抵当権抹消手続きを実施", "すべての鍵、設備説明書、管理組合提出書類を新オーナーに引き渡す"]
+                    }
+                }
+            },
+            house: {
+                badge: "一戸建て売却",
+                phases: {
+                    1: {
+                        title: "準備・査定フェーズ",
+                        desc: "一戸建ての価値は「建物」と「土地」に分かれます。境界線の有無や建築確認書類の準備が極めて重要です。",
+                        proTip: "戸建ての場合、境界が確定していないと土地実測精算でトラブルの元になります。将来的な境界確定調査の手順についても同時に相談しましょう。",
+                        docs: ["登記済証（権利証）または登記識別情報通知書", "新築時の建築確認済証・検査済証・設計図面", "土地の測量図・境界確認書", "住宅性能評価書・耐震適合証明（ある場合）"],
+                        checklist: ["売却目的の整理とローン残債証明書の取り寄せ", "建築確認済証や図面ファイルが物置などに眠っていないか整理・捜索", "土地境界標が現地に物理的に存在しているか目視確認", lineLinkHTML]
+                    },
+                    2: {
+                        title: "媒介契約・売り出し",
+                        desc: "最適な価格で不動産会社と媒介契約を結び、購入者を増やす販売活動を展開します。",
+                        proTip: "一戸建てはマンションに比べて日当たりや庭の清潔感が命です。植木の剪定、雑草取り、外壁の汚れ落としをすることで印象が大きく変わります。",
+                        docs: ["媒介契約書・物件状況報告書", "建築協定や周辺の特記事項がある場合はその書類", "耐震改修などの履歴資料"],
+                        checklist: ["媒介契約を結び、建物状況調査（インスペクション）の実施有無を検討する", "敷地内や庭の雑草を抜いて整理し、不快な虫害等がないか確認する", "広告等への載り方が魅力的な写真（外観・内観）になっているかチェック", "内覧希望者が来られたら、全室の照明をつけて家の中を明るく開放的にする"]
+                    },
+                    3: {
+                        title: "交渉・売買契約",
+                        desc: "購入希望者との価格交渉、引き渡し条件を詰め、厳格に売買契約を結びます。",
+                        proTip: "「契約不適合責任」の範囲を売主がどこまで負うかが極めて重要です。雨漏りやシロアリ、給排水管の故障を隠さず契約書に明記しましょう。",
+                        docs: ["売買契約書・重要事項説明書", "実印・印鑑証明書", "境界の確認報告に関する合意書", "固定資産税・都市計画税納税通知書"],
+                        checklist: ["買主からの指値に対し、建物解体や境界確定を売主負担にするかどうかを交渉", "引渡日時点での床下・雨漏り・シロアリの保証範囲を契約内容と照合する", "固定資産税および都市計画税の日割り精算内容について合意する", "契約当日に署名捺印のうえ、手付金を受領する"]
+                    },
+                    4: {
+                        title: "決済・引き渡し",
+                        desc: "代金の精算と抵当権抹消を済ませ、新しい所有者へ鍵を引き渡します。",
+                        proTip: "引き渡し前に、エアコンなどの付帯設備を取り外すか、残すかの最終確認を現地で買主と行いましょう。",
+                        docs: ["実印・印鑑証明書", "境界標がすべて確認された状態の土地測量図", "電気・ガス・水道の最終料金支払いレシート", "建物のすべての鍵・付属設備のリモコン"],
+                        checklist: ["エアコン撤去・粗大ゴミ・物置の中身を空にするなどの完全撤去の実施", "境界標に問題がないか、必要であれば司法書士や買主立ち会いで最終確認", "決済・ローン完済の実行と、抵当権抹消の委任手続きを司法書士に託す", "引き渡し完了後、インフラ関連の停止手続きを連絡する"]
+                    }
+                }
+            },
+            land: {
+                badge: "土地のみ売却",
+                phases: {
+                    1: {
+                        title: "準備・査定フェーズ",
+                        desc: "更地や古家付き土地の売却準備です。土地の価値は、建築条件や境界線等で確定します。",
+                        proTip: "土地の売却は境界確定が生命線です。お隣とのトラブルを回避しつつスムーズに進めるためにも、実測取引の手順を確認しましょう。",
+                        docs: ["登記済証（権利証）または登記識別情報通知書", "公図・地積測量図（法務局取得可）", "土地の境界確定同意書・境界確認図（ある場合）", "都市計画図・インフラ埋設図"],
+                        checklist: ["売却目的の明確化と、抵当権抹消に備えたローン残債確認", "法務局で「公図」や最新の「地積測量図」の履歴が存在するか確かめる", "隣地境界を越えた雨樋やフェンス等の越境物がないか確認", lineLinkHTML]
+                    },
+                    2: {
+                        title: "媒介契約・売り出し",
+                        desc: "土地としての売り出し広告や境界の再確認手続きを進める段階です。",
+                        proTip: "土地だけの場合、見学に来る買主は「どんな家が建つか」を気にします。建築プランを不動産会社に用意してもらうと成約率が高まります。",
+                        docs: ["媒介契約書・物件状況報告書", "水道やガスなどの埋設配管位置を示す図面", "地盤調査レポート（すでにある場合）"],
+                        checklist: ["媒介契約タイプを決定して調印する", "ゴミや雑草を放置せず、現地の除草や清掃を定期的に実施する", "土地の建築制限（容積率・用途地域など）の正確なアピール資料作成", "どのような参考間取り図（ボリュームプラン）が建つかを添付検討する"]
+                    },
+                    3: {
+                        title: "交渉・売買契約",
+                        desc: "買主候補からのオファー条件を詰め、法的に万全の土地売買契約を締結します。",
+                        proTip: "土地は購入後に「地中障害物（昔の基礎やゴミなどの埋設異物）」が発見されると撤去代トラブルになります。契約書の売主補償範囲を必ず制限しましょう。",
+                        docs: ["売買契約書・重要事項説明書", "実印・印鑑証明書", "確定測量図（境界立ち会い確定後の最新版）", "固定資産税等の精算書類"],
+                        checklist: ["実測取引にするか公簿取引にするかを交渉確認", "瑕疵となる「地中埋設物・土壌汚染」の売主免責期間について契約内容に盛り込む", "契約締信を厳格に行い、手付金を確実に受領する", "仲介手数料の支払いスケジュールの確認"]
+                    },
+                    4: {
+                        title: "決済・引き渡し",
+                        desc: "隣地境界がすべて完了した最終図面を引き渡し、代金を受領して更地や現況の土地を引き渡します。",
+                        proTip: "決済までにすべての隣地所有者との境界立ち会いが終了している必要があります。土地家屋調査士と余裕を持って調整しましょう。",
+                        docs: ["実印・印鑑証明書", "全隣地所有者の記名押印つき「境界確認同意書」", "土地の実測図面一式", "抵当権抹消に必要な登記書類一式（ローンがある場合）"],
+                        checklist: ["土地の決済・引き渡しを完了し、建築工事を着工する", "隣地境界等の完了成果確認", "残金全額の受領、登記、司法書士の移転申請", "実測図面、および確定同意書一式を新オーナーに引き渡す"]
+                    }
+                }
+            }
+        };
+
+        const roadmapDB_Purchase = {
+            condo: {
+                badge: "マンション購入",
+                phases: {
+                    1: {
+                        title: "予算計画・条件整理",
+                        desc: "マンションの相場をポータルサイト等で把握し、頭金の目安額、住宅ローンの月々返済可能額を明確化しながら予算上限を設定するステップです。",
+                        proTip: "マンション購入では物件本体価格のほかに、月々の「管理費」「修繕積立金」が発生します。これらを考慮して返済可能な上限枠を設定しましょう。",
+                        docs: ["源泉徴収票（直近1〜2年分）", "本人確認書類（運転免許証など）", "自己資金口座の残高確認書類", "既存ローンがある場合はその償還表"],
+                        checklist: ["購入検討の理由と、いつまでに入居したいか希望時期の決定", "源泉徴収票をもとにした年収の正確な把握", "希望エリアのマンション成約相場の調査", lineConsultLinkHTML]
+                    },
+                    2: {
+                        title: "物件探し・内覧・決定",
+                        desc: "実際のマンション内覧を行い、立地、専有部、共有部の管理状態を確認して買付意思を固めます。",
+                        proTip: "マンションは共有部の管理状況が命です。エントランスの清掃、駐輪場・ゴミ置き場の整理状況、長期修繕計画が作成されているかをチェックしてください。",
+                        docs: ["買付申込書（購入申込書）", "事前審査承認書", "認印"],
+                        checklist: ["希望条件の優先順位を3つに絞り込む", "実際の物件を3〜5件内覧し、日当たりや共有設備の利便性を比較する", "管理規約および修繕積立金残高、将来の改定予定を不動産会社に確認", "購入物件が決定したら買付申込書を提出し、ローンの事前審査を出す"]
+                    },
+                    3: {
+                        title: "ローン本審査・契約",
+                        desc: "売買契約時に重要事項説明を受け、手付金を支払い、住宅ローンの正式な本審査に申し込みます。",
+                        proTip: "手付金（物件価格の5%〜10%目安）は契約時に現金で支払う必要があります。ローンが実行される前に支払うお金なので、手元資金に余裕を持ってください。",
+                        docs: ["重要事項説明書・不動産売買契約書", "印鑑証明書（直近3ヶ月以内）", "住民票（家族全員分・マイナンバーなし）", "住宅ローン本申込書および団信告知書"],
+                        checklist: ["宅地建物取引士による重要事項説明を聞き、合意・契約する", "手付金（手持ちの自己資金）を支払う", "契約締結後、速やかに金融機関へ住宅ローン本審査申込を行う", "火災保険および地震保険のプラン選びを開始する"]
+                    },
+                    4: {
+                        title: "決済・引き渡し・入居",
+                        desc: "住宅ローンが実行され、残代金の精算、所有権移転の登記を行い、鍵を受け取って入居となります。",
+                        proTip: "決済当日は銀行にて売主・買主・司法書士・不動産会社が集まり、一斉送金を行います。実印や身分証、自己資金額を忘れないよう注意しましょう。",
+                        docs: ["実印・印鑑証明書・住民票", "新住所に移転後の住民票", "銀行の預金通帳・通帳届出印", "諸費用（司法書士費用など）の準備"],
+                        checklist: ["金融機関とローン契約（金銭消費貸借契約）を結ぶ", "新居内覧会（立ち会い）を行い、入居前の傷や不具合がないかチェック", "ローンを実行し、残代金・精算金を支払って鍵を受け取る", "引越し手続き、インフラ開始連絡を行う"]
+                    }
+                }
+            },
+            house: {
+                badge: "一戸建て購入",
+                phases: {
+                    1: {
+                        title: "予算計画・条件整理",
+                        desc: "新築分譲・中古戸建てのどちらが生活スタイルに合うか、また、将来のメンテナンス費を見据えて土地・建物の購入可能上限を定めます。",
+                        proTip: "一戸建ては修繕積立金の自動徴収はありませんが、将来の外壁・屋根塗装などのために月1.5万円程度を自主積立できる予算を確保しておきましょう。",
+                        docs: ["源泉徴収票（直近2年分）", "本人確認書類", "他社借入情報書類"],
+                        checklist: ["新築建売か、中古戸建てを購入してリフォームするかの選択基準の決定", "希望エリアのハザードマップ（洪水・地震など）を確認し、安全性を考慮", "自己資金から引越し代・予備費を引いた本当の頭金可能額の算出", lineConsultLinkHTML]
+                    },
+                    2: {
+                        title: "物件探し・内覧・決定",
+                        desc: "エリアの利便性だけでなく、境界標の有無や接道状況、中古の場合は建物の劣化状況を確認し、最適な一件を絞り込みます。",
+                        proTip: "戸建ては接道が非常に重要です。接している道路が4m以上あり、敷地がそれに2m以上接道しているかを不動産会社に確認してください。",
+                        docs: ["買付申込書", "ローン事前審査書類一式", "認印"],
+                        checklist: ["現地を訪問し、夜間の周辺状況や街灯、駅からの歩きやすさを確認する", "中古物件の場合、劣化が気になるなら「インスペクション（建物状況調査）」を検討する", "敷地境界標が現地に存在するか、隣地からの越境物がないか確認する", "購入希望物件に買付申込書を提出し、事前審査に進む"]
+                    },
+                    3: {
+                        title: "ローン本審査・契約",
+                        desc: "売買契約を結び、契約不適合責任の内容を確認。住宅ローンの本審査を受けます。",
+                        proTip: "特に中古戸建てでは、雨漏りやシロアリなどの不具合を発見した際の補償期間（売主の契約不適合責任）が何ヶ月あるか、重要事項説明書で必ず確認しましょう。",
+                        docs: ["売買契約書・重要事項説明書", "印鑑証明書", "所得課税証明書", "住宅ローン本申込書"],
+                        checklist: ["重要事項説明を受け、建物の建築確認済証・検査済証が正しく存在するか確認", "手付金を支払い、正式に売買契約を結ぶ", "ローン本審査に必要な書類を揃えて金融機関へ提出する", "戸建てに適した「火災保険＋水災・地震特約」の見積もりを比較する"]
+                    },
+                    4: {
+                        title: "決済・引き渡し・入居",
+                        desc: "新居の引渡前立ち会い（施主検査）を実施し、残代金を決済してマイホームを受け取ります。",
+                        proTip: "新築建売の場合、引き渡し前の「内覧会（施主検査）」で、傷やクロスの剥がれなどがないか確認し、決済日までに修正してもらいましょう。",
+                        docs: ["実印・新住所での印鑑証明書", "新住民票", "自己資金残代金の支払い確認書類", "銀行届出印"],
+                        checklist: ["引渡前の建物立ち会いチェック（施主検査）を行い、補修箇所を依頼する", "住宅ローン契約を結び、金利プランを確定する", "残代金の送金、登記（抵当権・所有権移転）、鍵の受領を一気に行う", "引越し作業、各インフラの手続きを完了する"]
+                    }
+                }
+            },
+            land: {
+                badge: "土地＋注文住宅",
+                phases: {
+                    1: {
+                        title: "予算計画・条件整理",
+                        desc: "土地の購入費と、建物の建築費（屋外給排水など付帯工事、オプション含む）の総額予算をバランスよく配分します。",
+                        proTip: "土地＋注文住宅は、土地代と建物以外に「地盤改良工事（約50〜100万円）」「外構・庭工事（約100〜200万円）」などの付帯工事費が高額になりがちです。",
+                        docs: ["年収証明書（源泉徴収票等）", "自己資金確認書類", "身分証明書"],
+                        checklist: ["全体の総予算を設定し、土地・建物・諸費用への配分計画を設計する", "理想の間取りや性能（高断熱・耐震など）の書き出し", "ハウスメーカーや工務店の候補出し", lineConsultLinkHTML]
+                    },
+                    2: {
+                        title: "土地探し・ハウスメーカー選定",
+                        desc: "希望の家が建てられる規制（容積率・建ぺい率など）のある土地を探しつつ、相性の良いハウスメーカーを決定します。",
+                        proTip: "土地だけを先に買っても、注文住宅のプラン・建築確認の目処が立たないとローンの本審査が進められません。建築プランと並行して進める必要があります。",
+                        docs: ["土地買付申込書", "建物の概算プラン図面・見積書", "ローン事前審査承認書"],
+                        checklist: ["希望の建築プランが入る土地か、メーカー同伴等で見学し確認する", "インフラ配管（水道・ガス・電気）が敷地内に引き込まれているか確認", "土地の買付申込をし、ハウスメーカーへの見積もりを固める", "土地・建物合算でのローン事前審査を提出する"]
+                    },
+                    3: {
+                        title: "土地契約・工事契約・ローン本審査",
+                        desc: "土地の売買契約、およびハウスメーカーとの建築工事請負契約を結び、住宅ローンの本審査を受けます。",
+                        proTip: "土地の購入時、建物の中間金時、竣工引渡時など、複数回分割してお金が必要になるため、「つなぎ融資」やローンの「分割実行」手続きが必須となります。",
+                        docs: ["土地売買契約書・建物工事請負契約書", "確認済証（建築確認申請の承認書）", "印鑑証明書・所得証明書一式", "住宅ローン本申込書（分割・つなぎ融資設定）"],
+                        checklist: ["土地の売買契約を締結し、土地用の手付金を支払う", "ハウスメーカーと工事請負契約を締結する", "建築確認申請書を提出し、確認済証を取得する", "つなぎ融資（または分割実行）を含めたローン本審査申込を行う"]
+                    },
+                    4: {
+                        title: "着工・上棟・最終決済引き渡し",
+                        desc: "着工・上棟（構造体組立）を経て建物が完成。最終残代金を決済し、建物引き渡し・登記・入居を完了させます。",
+                        proTip: "基礎工事中や上棟など、工事の進行に合わせて現場へ確認に行きましょう。図面通りのコンセント位置などミスを防ぐのにも役立ちます。",
+                        docs: ["竣工検査済証", "実印・新住民票・新印鑑証明書", "火災保険契約書", "融資実行の最終確認書類"],
+                        checklist: ["土地の決済・引き渡しを完了し、建築工事を着工する", "着工金・中間金を住宅ローンのつなぎ融資等で建築会社へ支払う", "建物完成時に竣工検査を行い、手直しを完了させる", "最終融資を実行し、新居の引き渡し・入居を完了する"]
+                    }
+                }
+            }
+        };
+
+        // Tab definitions for each Mode
+        const tabsDB = {
+            sale: [
+                { id: 'roadmap', label: '1. 物件別売却ロードマップ＆ノート', icon: 'fa-route' },
+                { id: 'simulator', label: '2. 売却諸経費＆手残りシミュレーター', icon: 'fa-coins' },
+                { id: 'repurchase', label: '3. 住み替え予算・ローン試算', icon: 'fa-calculator' },
+                { id: 'diagnosis', label: '4. 媒介契約マッチング診断', icon: 'fa-clipboard-question' }
+            ],
+            purchase: [
+                { id: 'roadmap', label: '1. 物件別購入ロードマップ＆ノート', icon: 'fa-route' },
+                { id: 'simulator', label: '2. 購入諸費用＆総資金シミュレーター', icon: 'fa-coins' },
+                { id: 'repurchase', label: '3. 住宅ローン返済＆維持費負担率診断', icon: 'fa-calculator' },
+                { id: 'diagnosis', label: '4. ローン・購入適性マッチング診断', icon: 'fa-clipboard-question' }
+            ]
+        };
+
+        // Questionnaires definitions
+        const diagnosisQuestions = {
+            sale: [
+                {
+                    qNum: 1,
+                    text: "自分で見つけた買い手（親族・知人、隣人など）に直接売却する可能性はありますか？",
+                    yesText: "可能性がゼロではない",
+                    noText: "完全に任せる / 可能性はゼロ"
+                },
+                {
+                    qNum: 2,
+                    text: "売りこぼしを防ぐため、多数の不動産会社に競わせて幅広く買い手を探したいですか？",
+                    yesText: "多くの会社で並行して売出したい",
+                    noText: "信頼できる1つの窓口に絞りたい"
+                },
+                {
+                    qNum: 3,
+                    text: "不動産会社から高頻度（週1回以上などの積極的な報告義務）での活動報告を求めますか？",
+                    yesText: "頻繁かつ詳細な報告が欲しい",
+                    noText: "報告は少なめで良く、効率を重視"
+                }
+            ],
+            purchase: [
+                {
+                    qNum: 1,
+                    text: "将来の日本の金利上昇リスクに対して、大きな不安を感じますか？",
+                    yesText: "絶対に金利を固定して、安心したい",
+                    noText: "上昇リスクは許容し、今の低金利メリットを活かしたい"
+                },
+                {
+                    qNum: 2,
+                    text: "中古物件を安く購入し、自分の好みに合わせて全面的なリノベーションを行うことに興味はありますか？",
+                    yesText: "フルリノベにとても興味がある",
+                    noText: "新築やリフォーム済みの、綺麗ですぐ住める家が良い"
+                },
+                {
+                    qNum: 3,
+                    text: "住宅ローンの団体信用生命保険（がん保障、三大疾病などの特約）を手厚くしたいですか？",
+                    yesText: "特約をフルに付け、保険代わりにもしたい",
+                    noText: "特約コスト（金利上乗せ）を抑えて、最安金利にしたい"
+                }
+            ]
+        };
+
+        // Window Onload Initialization
+        window.onload = function() {
+            // Apply theme based on default mode ('sale')
+            setAppMode('sale');
+            
+            // Add simulator key inputs listeners
+            const inputsSale = ['sim-sold-price', 'sim-buy-price', 'sim-loan-remain', 'sim-other-exp'];
+            inputsSale.forEach(id => {
+                document.getElementById(id).addEventListener('input', calculateFinancialsSale);
+            });
+
+            const inputsPurchase = [
+                'sim-property-price', 
+                'sim-down-payment', 
+                'sim-renovation-price', 
+                'sim-tax-adjustment', 
+                'sim-maintenance-adjustment', 
+                'sim-other-moving-price',
+                // 追加購入ローン返済シミュレーター用リスナー
+                'rep-price-purchase',
+                'rep-annual-income-purchase',
+                'rep-maint-fee-purchase',
+                'rep-repair-fee-purchase',
+                'rep-parking-fee-purchase',
+                'rep-other-fee-purchase'
+            ];
+            inputsPurchase.forEach(id => {
+                document.getElementById(id).addEventListener('input', calculateFinancialsPurchase);
+            });
+        };
+
+        // Unified App Mode Switching (Dynamic colors, titles, tabs and structures)
+        function setAppMode(mode) {
+            currentMode = mode;
+            const body = document.body;
+            const currentModeBadge = document.getElementById('current-mode-badge');
+            const btnSale = document.getElementById('btn-mode-sale');
+            const btnPurchase = document.getElementById('btn-mode-purchase');
+
+            // Dynamic header texts
+            const headerTag = document.getElementById('header-top-tag');
+            const headerTitle = document.getElementById('header-main-title');
+            const headerSub = document.getElementById('header-sub-desc');
+
+            const propertyStatusMini = document.getElementById('property-status-mini-label');
+            const propertyStatusMain = document.getElementById('property-status-main-label');
+            const landText = document.getElementById('land-btn-text');
+            const landIcon = document.getElementById('land-icon-symbol');
+
+            if (mode === 'sale') {
+                body.classList.remove('theme-purchase');
+                currentModeBadge.innerText = "売却プランナー";
+                currentModeBadge.className = "text-xs font-black bg-blue-600 px-2.5 py-1 rounded";
+
+                btnSale.className = "py-1.5 px-4 rounded-lg text-xs font-black transition-all bg-blue-600 text-white shadow";
+                btnPurchase.className = "py-1.5 px-4 rounded-lg text-xs font-black transition-all text-slate-400 hover:text-white";
+
+                headerTag.innerText = "売却＆住み替え一元化プランナー";
+                headerTitle.innerText = "不動産売却ロードマップ＆売却・住替シミュレーター";
+                headerSub.innerText = "物件種別（マンション・戸建て・土地）の売却から、新居買い替えの資金計画、進捗保存までフルカバー";
+
+                propertyStatusMini.innerText = "現在の物件設定";
+                propertyStatusMain.innerText = "売却を予定している不動産の種類";
+                landText.innerText = "土地のみ";
+                landIcon.className = "fa-solid fa-tree";
+
+                // CSS Variables transition
+                document.documentElement.style.setProperty('--theme-primary', '#1e3a8a');
+                document.documentElement.style.setProperty('--theme-primary-hover', '#1e40af');
+                document.documentElement.style.setProperty('--theme-secondary', '#eff6ff');
+                document.documentElement.style.setProperty('--theme-accent', '#f59e0b');
+                document.documentElement.style.setProperty('--theme-border', '#3b82f6');
+                document.documentElement.style.setProperty('--theme-bg-gradient', 'linear-gradient(to right, #1e3a8a, #1e1b4b)');
+                document.documentElement.style.setProperty('--theme-badge-bg', '#dbeafe');
+                document.documentElement.style.setProperty('--theme-badge-text', '#1e40af');
+
+                document.getElementById('sim-container-sale').classList.remove('hidden');
+                document.getElementById('sim-container-purchase').classList.add('hidden');
+                document.getElementById('nextplan-container-sale').classList.remove('hidden');
+                document.getElementById('nextplan-container-purchase').classList.add('hidden');
+
+                // Sync selected property type
+                changePropertyType(selectedPropertyTypeSale);
+                calculateFinancialsSale();
+                calculateRepurchaseSale();
+            } else {
+                body.classList.add('theme-purchase');
+                currentModeBadge.innerText = "購入プランナー";
+                currentModeBadge.className = "text-xs font-black bg-emerald-600 px-2.5 py-1 rounded";
+
+                btnSale.className = "py-1.5 px-4 rounded-lg text-xs font-black transition-all text-slate-400 hover:text-white";
+                btnPurchase.className = "py-1.5 px-4 rounded-lg text-xs font-black transition-all bg-emerald-600 text-white shadow";
+
+                headerTag.innerText = "資金計画＆マイホーム購入一元化プランナー";
+                headerTitle.innerText = "不動産購入ロードマップ＆資金計画シミュレーター";
+                headerSub.innerText = "マンション・戸建て・土地＋注文住宅の検討から、諸費用・ローン返済・進捗保存までマイホーム購入をフルサポート";
+
+                propertyStatusMini.innerText = "現在の検討物件設定";
+                propertyStatusMain.innerText = "購入を予定・検討している不動産の種類";
+                landText.innerText = "土地＋注文住宅";
+                landIcon.className = "fa-solid fa-compass-drafting";
+
+                // CSS Variables transition
+                document.documentElement.style.setProperty('--theme-primary', '#065f46');
+                document.documentElement.style.setProperty('--theme-primary-hover', '#047857');
+                document.documentElement.style.setProperty('--theme-secondary', '#ecfdf5');
+                document.documentElement.style.setProperty('--theme-accent', '#d97706');
+                document.documentElement.style.setProperty('--theme-border', '#10b981');
+                document.documentElement.style.setProperty('--theme-bg-gradient', 'linear-gradient(to right, #065f46, #022c22)');
+                document.documentElement.style.setProperty('--theme-badge-bg', '#d1fae5');
+                document.documentElement.style.setProperty('--theme-badge-text', '#065f46');
+
+                document.getElementById('sim-container-sale').classList.add('hidden');
+                document.getElementById('sim-container-purchase').classList.remove('hidden');
+                document.getElementById('nextplan-container-sale').classList.add('hidden');
+                document.getElementById('nextplan-container-purchase').classList.remove('hidden');
+
+                // Sync selected property type
+                changePropertyType(selectedPropertyTypePurchase);
+                calculateFinancialsPurchase();
+                calculateRepurchasePurchase();
+            }
+
+            // Build tabs
+            buildTabs();
+            // Reset active section
+            switchTab('roadmap');
+            // Build questionnaire
+            buildQuestionnaire();
+        }
+
+        // Generate navigation tabs dynamically
+        function buildTabs() {
+            const container = document.getElementById('navigation-tabs-bar');
+            container.innerHTML = '';
+            
+            const list = tabsDB[currentMode];
+            list.forEach((tab, index) => {
+                const btn = document.createElement('button');
+                btn.id = `tab-${tab.id}`;
+                btn.onclick = () => switchTab(tab.id);
+                btn.className = "py-4 px-6 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-800 focus:outline-none transition-all flex items-center gap-2";
+                btn.innerHTML = `<i class="fa-solid ${tab.icon}"></i> ${tab.label}`;
+                container.appendChild(btn);
+            });
+        }
+
+        // Object property type switcher
+        function changePropertyType(typeCode) {
+            if (currentMode === 'sale') {
+                selectedPropertyTypeSale = typeCode;
+            } else {
+                selectedPropertyTypePurchase = typeCode;
+            }
+            
+            // Highlight selector buttons
+            const types = ['condo', 'house', 'land'];
+            types.forEach(t => {
+                const btn = document.getElementById(`btn-type-${t}`);
+                if (t === typeCode) {
+                    btn.className = "py-2.5 px-4 rounded-xl border-2 text-xs font-bold transition-all focus:outline-none flex items-center justify-center gap-2 border-theme-primary bg-theme-secondary text-theme-primary shadow-sm";
+                } else {
+                    btn.className = "py-2.5 px-4 rounded-xl border-2 text-xs font-bold transition-all focus:outline-none flex items-center justify-center gap-2 border-slate-200 text-slate-600 bg-white hover:bg-slate-50";
+                }
+            });
+
+            // Refresh Dynamic Badges
+            const currentTypeLabel = (typeCode === 'condo') ? 'マンション' : (typeCode === 'house') ? '一戸建て' : (currentMode === 'sale') ? '土地のみ' : '土地＋注文住宅';
+            document.getElementById('detail-type-badge').innerText = `${currentTypeLabel}向けタスク`;
+            
+            if (currentMode === 'sale') {
+                document.getElementById('sim-sale-type-badge').innerText = currentTypeLabel;
+                // Update short phase descriptions on cards
+                for (let i = 1; i <= 4; i++) {
+                    document.getElementById(`phase-desc-short-${i}`).innerText = roadmapDB_Sale[typeCode].phases[i].desc;
+                    document.getElementById(`phase-title-card-${i}`).innerText = roadmapDB_Sale[typeCode].phases[i].title;
+                }
+                selectPhase(currentPhaseSale);
+                calculateFinancialsSale();
+            } else {
+                document.getElementById('sim-purchase-type-badge').innerText = currentTypeLabel;
+                for (let i = 1; i <= 4; i++) {
+                    document.getElementById(`phase-desc-short-${i}`).innerText = roadmapDB_Purchase[typeCode].phases[i].desc;
+                    document.getElementById(`phase-title-card-${i}`).innerText = roadmapDB_Purchase[typeCode].phases[i].title;
+                }
+                selectPhase(currentPhasePurchase);
+                calculateFinancialsPurchase();
+            }
+        }
+
+        // Tab Switching Engine
+        function switchTab(tabName) {
+            const tabs = ['roadmap', 'simulator', 'repurchase', 'diagnosis'];
+            tabs.forEach(t => {
+                const tabBtn = document.getElementById(`tab-${t}`);
+                if (tabBtn) {
+                    tabBtn.className = "py-4 px-6 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-800 focus:outline-none transition-all flex items-center gap-2";
+                }
+                document.getElementById(`content-${t}`).classList.add('hidden');
+            });
+
+            const activeTabBtn = document.getElementById(`tab-${tabName}`);
+            if (activeTabBtn) {
+                activeTabBtn.className = "py-4 px-6 text-sm font-medium border-b-2 border-theme-primary text-theme-primary focus:outline-none transition-all flex items-center gap-2";
+            }
+            document.getElementById(`content-${tabName}`).classList.remove('hidden');
+
+            if (tabName === 'repurchase') {
+                if (currentMode === 'sale') {
+                    calculateRepurchaseSale();
+                } else {
+                    calculateRepurchasePurchase();
+                }
+            }
+        }
+
+        // Phase timeline selection
+        function selectPhase(phaseNum) {
+            if (currentMode === 'sale') {
+                currentPhaseSale = phaseNum;
+            } else {
+                currentPhasePurchase = phaseNum;
+            }
+
+            // Step highlights
+            for (let i = 1; i <= 4; i++) {
+                const card = document.getElementById(`step-card-${i}`);
+                if (i === phaseNum) {
+                    card.className = "p-4 rounded-xl border-2 border-theme-primary bg-theme-secondary transition-all cursor-pointer hover:shadow-md";
+                } else {
+                    card.className = "p-4 rounded-xl border border-slate-200 bg-white transition-all cursor-pointer hover:shadow-md";
+                }
+            }
+
+            // Retrieve corresponding data
+            const typeCode = (currentMode === 'sale') ? selectedPropertyTypeSale : selectedPropertyTypePurchase;
+            const db = (currentMode === 'sale') ? roadmapDB_Sale : roadmapDB_Purchase;
+            const data = db[typeCode].phases[phaseNum];
+
+            document.getElementById('detail-phase-badge').innerText = `Phase ${phaseNum}`;
+            document.getElementById('detail-phase-title').innerText = data.title;
+            document.getElementById('detail-phase-desc').innerText = data.desc;
+            document.getElementById('detail-pro-tip').innerText = data.proTip;
+
+            // Render Documentations list
+            const docsContainer = document.getElementById('detail-docs');
+            docsContainer.innerHTML = '';
+            data.docs.forEach(doc => {
+                const li = document.createElement('li');
+                li.innerText = doc;
+                docsContainer.appendChild(li);
+            });
+
+            // Dynamic checklists rendering with individual memos
+            const checkContainer = document.getElementById('checklist-container');
+            checkContainer.innerHTML = '';
+
+            const progressSet = (currentMode === 'sale') ? userProgressSale : userProgressPurchase;
+            const notesSet = (currentMode === 'sale') ? userNotesSale : userNotesPurchase;
+
+            data.checklist.forEach((itemText, index) => {
+                const isChecked = progressSet[typeCode][phaseNum][index] === 1;
+                const noteKey = `${typeCode}-${phaseNum}-${index}`;
+                const currentNote = notesSet[noteKey] || "";
+
+                const div = document.createElement('div');
+                div.className = `checklist-item p-3.5 rounded-xl border transition-all space-y-2.5 ${isChecked ? 'bg-emerald-50/50 border-emerald-200 text-emerald-950' : 'bg-slate-50 border-slate-200 hover:bg-slate-100/30'}`;
+                div.innerHTML = `
+                    <div class="flex items-start gap-3">
+                        <input type="checkbox" id="chk-${phaseNum}-${index}" ${isChecked ? 'checked' : ''} onchange="toggleCheck(${phaseNum}, ${index})" class="mt-1 w-4.5 h-4.5 text-slate-950 rounded border-slate-300 focus:ring-emerald-900 focus:ring-offset-0">
+                        <label for="chk-${phaseNum}-${index}" class="text-xs md:text-sm cursor-pointer font-bold leading-relaxed select-none flex-1">${itemText}</label>
+                        <button onclick="toggleMemo('${noteKey}')" class="text-slate-400 hover:text-slate-700 p-0.5 transition" title="備忘録ノート">
+                            <i class="fa-solid fa-note-sticky text-sm ${currentNote ? 'text-indigo-600' : ''}"></i>
+                        </button>
+                    </div>
+                    <div id="memo-box-${noteKey}" class="${currentNote ? 'block' : 'hidden'} pl-7">
+                        <textarea oninput="saveNote('${noteKey}', this.value)" class="w-full text-xs p-2 bg-white rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-950 text-slate-800 placeholder-slate-400" rows="2" placeholder="打ち合わせ履歴、保管場所、価格や手続きスケジュールなどのメモを残せます...">${currentNote}</textarea>
+                    </div>
+                `;
+                checkContainer.appendChild(div);
+            });
+
+            // Update individual percentages
+            for(let i=1; i<=4; i++) {
+                updatePhaseProgress(i);
+            }
+            updateOverallProgress();
+        }
+
+        // Toggle Memo Block
+        function toggleMemo(noteKey) {
+            const memoBox = document.getElementById(`memo-box-${noteKey}`);
+            if (memoBox.classList.contains('hidden')) {
+                memoBox.classList.remove('hidden');
+                memoBox.classList.add('block');
+            } else {
+                memoBox.classList.add('hidden');
+                memoBox.classList.remove('block');
+            }
+        }
+
+        // Save Notes Input to separate memory namespaces
+        function saveNote(noteKey, value) {
+            if (currentMode === 'sale') {
+                userNotesSale[noteKey] = value;
+            } else {
+                userNotesPurchase[noteKey] = value;
+            }
+        }
+
+        // Dynamic Action for Checklist Toggle
+        function toggleCheck(phaseNum, index) {
+            const chkBox = document.getElementById(`chk-${phaseNum}-${index}`);
+            const typeCode = (currentMode === 'sale') ? selectedPropertyTypeSale : selectedPropertyTypePurchase;
+            const progressSet = (currentMode === 'sale') ? userProgressSale : userProgressPurchase;
+
+            progressSet[typeCode][phaseNum][index] = chkBox.checked ? 1 : 0;
+            
+            updatePhaseProgress(phaseNum);
+            updateOverallProgress();
+
+            const labelRow = chkBox.closest('.checklist-item');
+            if (chkBox.checked) {
+                labelRow.className = "checklist-item p-3.5 rounded-xl border transition-all space-y-2.5 bg-emerald-50/50 border-emerald-200 text-emerald-950";
+                showToast("やることタスクを完了しました！", "success");
+            } else {
+                labelRow.className = "checklist-item p-3.5 rounded-xl border transition-all space-y-2.5 bg-slate-50 border-slate-200 hover:bg-slate-100/30";
+            }
+        }
+
+        function updatePhaseProgress(phaseNum) {
+            const typeCode = (currentMode === 'sale') ? selectedPropertyTypeSale : selectedPropertyTypePurchase;
+            const progressSet = (currentMode === 'sale') ? userProgressSale : userProgressPurchase;
+
+            const list = progressSet[typeCode][phaseNum];
+            const completed = list.filter(item => item === 1).length;
+            const progressPct = Math.round((completed / list.length) * 100);
+
+            const progBadge = document.getElementById(`phase-progress-${phaseNum}`);
+            const progBar = document.getElementById(`phase-bar-${phaseNum}`);
+            progBadge.innerText = `${progressPct}% 完了`;
+            progBar.style.width = `${progressPct}%`;
+
+            if (progressPct === 100) {
+                progBadge.className = "text-xs bg-emerald-100 text-emerald-800 font-bold px-2 py-1 rounded";
+            } else if (progressPct > 0) {
+                progBadge.className = "text-xs bg-amber-100 text-amber-800 font-medium px-2 py-1 rounded";
+            } else {
+                progBadge.className = "text-xs bg-slate-100 text-slate-600 font-normal px-2 py-1 rounded";
+            }
+        }
+
+        function updateOverallProgress() {
+            let totalTodos = 0;
+            let completedTodos = 0;
+
+            const typeCode = (currentMode === 'sale') ? selectedPropertyTypeSale : selectedPropertyTypePurchase;
+            const progressSet = (currentMode === 'sale') ? userProgressSale : userProgressPurchase;
+
+            const typeSet = progressSet[typeCode];
+            for (const key in typeSet) {
+                totalTodos += typeSet[key].length;
+                completedTodos += typeSet[key].filter(v => v === 1).length;
+            }
+
+            const overallPct = Math.round((completedTodos / totalTodos) * 100);
+            document.getElementById('overall-progress-text').innerText = `${overallPct}%`;
+
+            const circle = document.getElementById('overall-progress-circle');
+            const offset = 163.36 - (overallPct / 100) * 163.36;
+            circle.style.strokeDashoffset = offset;
+
+            const statusLabel = document.getElementById('progress-status-label');
+            if (overallPct === 100) {
+                statusLabel.innerText = "すべてのタスクが完了しました！素晴らしいです！ 👑";
+                statusLabel.className = "text-sm font-bold text-emerald-300 mt-0.5";
+            } else if (overallPct >= 75) {
+                statusLabel.innerText = "引き渡し・決裁に向けて最終段階です！";
+                statusLabel.className = "text-sm font-bold text-amber-300 mt-0.5";
+            } else if (overallPct >= 40) {
+                statusLabel.innerText = "順調に進んでいます。次の段階をチェック！";
+                statusLabel.className = "text-sm font-bold text-blue-200 mt-0.5";
+            } else if (overallPct > 0) {
+                statusLabel.innerText = "一歩ずつやることリストを進めましょう！";
+                statusLabel.className = "text-sm font-bold text-white mt-0.5";
+            } else {
+                statusLabel.innerText = "第一段階から進めてみましょう！";
+                statusLabel.className = "text-sm font-bold text-white/70 mt-0.5";
+            }
+        }
+
+        // ==========================================
+        // SALE MODE SIMULATION LOGIC
+        // ==========================================
+        function calculateFinancialsSale() {
+            const soldPrice = parseFloat(document.getElementById('sim-sold-price').value) || 0;
+            const buyPrice = parseFloat(document.getElementById('sim-buy-price').value) || 0;
+            const loanRemain = parseFloat(document.getElementById('sim-loan-remain').value) || 0;
+            const otherExpenses = parseFloat(document.getElementById('sim-other-exp').value) || 0;
+
+            const isLongPeriod = document.getElementById('lbl-period-long').querySelector('input').checked;
+            const useDeduction = document.getElementById('sim-deduction').checked;
+            const useEmptyDeduction = document.getElementById('sim-empty-deduction').checked;
+            const useTenYearsReduction = document.getElementById('sim-ten-years').checked;
+
+            // 1. Agent Fee
+            let agentFee = 0;
+            if (soldPrice > 400) {
+                agentFee = Math.round(((soldPrice * 0.03) + 6) * 1.1);
+            } else if (soldPrice > 200) {
+                agentFee = Math.round(((soldPrice * 0.04) + 2) * 1.1);
+            } else if (soldPrice > 0) {
+                agentFee = Math.round((soldPrice * 0.05) * 1.1);
+            }
+
+            // 2. Stamp Duty
+            let stampDuty = 0;
+            if (soldPrice > 10000) stampDuty = 6;
+            else if (soldPrice > 5000) stampDuty = 3;
+            else if (soldPrice > 1000) stampDuty = 1;
+            else if (soldPrice > 500) stampDuty = 0.5;
+            else if (soldPrice > 100) stampDuty = 0.2;
+            else if (soldPrice > 0) stampDuty = 0.05;
+
+            // 3. Registry standard
+            const registryCost = 2.5;
+
+            // 4. Capital gain taxation
+            let acquisitionCost = (buyPrice > 0) ? (buyPrice * 1.05) : (soldPrice * 0.05);
+            let taxableGain = soldPrice - acquisitionCost - (agentFee + stampDuty);
+            if (taxableGain < 0) taxableGain = 0;
+
+            if (useDeduction) taxableGain = Math.max(0, taxableGain - 3000);
+            if (useEmptyDeduction) taxableGain = Math.max(0, taxableGain - 3000);
+
+            let taxRate = isLongPeriod ? 0.20315 : 0.3963;
+            let capitalGainTax = 0;
+            if (isLongPeriod && useTenYearsReduction) {
+                if (taxableGain <= 6000) {
+                    capitalGainTax = Math.round(taxableGain * 0.1421);
+                } else {
+                    capitalGainTax = Math.round((6000 * 0.1421) + ((taxableGain - 6000) * 0.20315));
+                }
+            } else {
+                capitalGainTax = Math.round(taxableGain * taxRate);
+            }
+
+            const totalExpenses = agentFee + stampDuty + registryCost + capitalGainTax;
+            const otherPlusLoan = loanRemain + otherExpenses;
+            let netCash = soldPrice - totalExpenses - otherPlusLoan;
+            if (netCash < 0) netCash = 0;
+
+            globalNetCashSale = netCash; // Cache
+
+            // Render stats JPY
+            document.getElementById('sum-net-cash-sale').innerHTML = `${netCash.toLocaleString()} <span class="text-xs font-normal text-slate-700">万円</span>`;
+            document.getElementById('sum-expenses-sale').innerHTML = `${totalExpenses.toLocaleString()} <span class="text-xs font-normal text-slate-700">万円</span>`;
+            document.getElementById('sum-deductions-sale').innerHTML = `${otherPlusLoan.toLocaleString()} <span class="text-xs font-normal text-slate-700">万円</span>`;
+
+            document.getElementById('val-agent-fee-sale').innerText = `${agentFee.toLocaleString()} 万円`;
+            document.getElementById('val-stamp-duty-sale').innerText = `${stampDuty.toLocaleString()} 万円`;
+            document.getElementById('val-capital-gain-tax-sale').innerText = `${capitalGainTax.toLocaleString()} 万円`;
+            document.getElementById('val-display-other-sale').innerText = `${otherExpenses.toLocaleString()} 万円`;
+
+            // Active period buttons border styles
+            if (isLongPeriod) {
+                document.getElementById('lbl-period-long').className = "border-2 border-blue-900 rounded-xl p-2.5 flex items-center gap-2 cursor-pointer bg-blue-50/50 shadow-sm";
+                document.getElementById('lbl-period-short').className = "border border-slate-300 rounded-xl p-2.5 flex items-center gap-2 cursor-pointer bg-white opacity-70";
+            } else {
+                document.getElementById('lbl-period-long').className = "border border-slate-300 rounded-xl p-2.5 flex items-center gap-2 cursor-pointer bg-white opacity-70";
+                document.getElementById('lbl-period-short').className = "border-2 border-blue-900 rounded-xl p-2.5 flex items-center gap-2 cursor-pointer bg-blue-50/50 shadow-sm";
+            }
+
+            // Sync placeholders
+            document.getElementById('lbl-max-handover-sale').innerText = `売却手残り上限：${netCash.toLocaleString()}万円`;
+
+            updateDonutChartSale(soldPrice, netCash, otherPlusLoan, totalExpenses);
+        }
+
+        function updateDonutChartSale(total, cash, loanAndOther, expenses) {
+            if (total <= 0) total = 1;
+            const cashPct = Math.max(0, Math.min(100, (cash / total) * 100));
+            const loanPct = Math.max(0, Math.min(100, (loanAndOther / total) * 100));
+            const expPct = Math.max(0, Math.min(100, (expenses / total) * 100));
+
+            document.getElementById('slice-cash-sale').style.strokeDasharray = `${cashPct} 100`;
+            document.getElementById('slice-loan-sale').style.strokeDasharray = `${loanPct} 100`;
+            document.getElementById('slice-loan-sale').style.strokeDashoffset = `-${cashPct}`;
+            document.getElementById('slice-expenses-sale').style.strokeDasharray = `${expPct} 100`;
+            document.getElementById('slice-expenses-sale').style.strokeDashoffset = `-${cashPct + loanPct}`;
+
+            document.getElementById('donut-cash-percent-sale').innerText = `${Math.round(cashPct)}%`;
+            document.getElementById('legend-cash-pct-sale').innerText = `${Math.round(cashPct)}%`;
+            document.getElementById('legend-loan-pct-sale').innerText = `${Math.round(loanPct)}%`;
+            document.getElementById('legend-exp-pct-sale').innerText = `${Math.round(expPct)}%`;
+        }
+
+        // ==========================================
+        // PURCHASE MODE SIMULATION LOGIC
+        // ==========================================
+        function calculateFinancialsPurchase() {
+            const propertyPrice = parseFloat(document.getElementById('sim-property-price').value) || 0;
+            const downPayment = parseFloat(document.getElementById('sim-down-payment').value) || 0;
+            const renovationPrice = parseFloat(document.getElementById('sim-renovation-price').value) || 0;
+            const otherMovingPrice = parseFloat(document.getElementById('sim-other-moving-price').value) || 0;
+            const taxAdjustment = parseFloat(document.getElementById('sim-tax-adjustment').value) || 0;
+            const maintenanceAdjustment = parseFloat(document.getElementById('sim-maintenance-adjustment').value) || 0;
+
+            const standardAgentFee = document.getElementById('lbl-fee-exist').querySelector('input').checked;
+
+            // 1. Agent Fee
+            let agentFee = 0;
+            if (standardAgentFee) {
+                if (propertyPrice > 400) {
+                    agentFee = Math.round(((propertyPrice * 0.03) + 6) * 1.1);
+                } else if (propertyPrice > 200) {
+                    agentFee = Math.round(((propertyPrice * 0.04) + 2) * 1.1);
+                } else if (propertyPrice > 0) {
+                    agentFee = Math.round((propertyPrice * 0.05) * 1.1);
+                }
+            }
+
+            // 2. Registry cost
+            let registryCost = (propertyPrice > 0) ? Math.round((propertyPrice * 0.012) + 15) : 0;
+
+            // 3. Stamp Duty
+            let stampDuty = 0;
+            if (propertyPrice > 10000) stampDuty = 6;
+            else if (propertyPrice > 5000) stampDuty = 3;
+            else if (propertyPrice > 1000) stampDuty = 1;
+            else if (propertyPrice > 500) stampDuty = 0.5;
+            else if (propertyPrice > 100) stampDuty = 0.2;
+            else if (propertyPrice > 0) stampDuty = 0.05;
+
+            // 4. Loan administration standard
+            const tempLoan = Math.max(0, propertyPrice - downPayment);
+            const loanProcessFee = Math.round(tempLoan * 0.022);
+
+            // 5. Fire & Earthquake Insurance
+            const insuranceFee = (selectedPropertyTypePurchase === 'condo') ? 12 : 25;
+
+            // Include taxAdjustment and maintenanceAdjustment into totalExpenses
+            const totalExpenses = agentFee + registryCost + stampDuty + loanProcessFee + insuranceFee + taxAdjustment + maintenanceAdjustment;
+            const otherSums = renovationPrice + otherMovingPrice;
+            const grandTotalNeeded = propertyPrice + otherSums + totalExpenses;
+
+            let requiredLoan = grandTotalNeeded - downPayment;
+            if (requiredLoan < 0) requiredLoan = 0;
+
+            globalRequiredLoanPurchase = requiredLoan; // Cache
+
+            // Render stats JPY
+            document.getElementById('sum-net-cash-purchase').innerHTML = `${requiredLoan.toLocaleString()} <span class="text-xs font-normal text-slate-700">万円</span>`;
+            document.getElementById('sum-expenses-purchase').innerHTML = `${totalExpenses.toLocaleString()} <span class="text-xs font-normal text-slate-700">万円</span>`;
+            document.getElementById('sum-deductions-purchase').innerHTML = `${grandTotalNeeded.toLocaleString()} <span class="text-xs font-normal text-slate-700">万円</span>`;
+
+            document.getElementById('val-agent-fee-purchase').innerText = `${agentFee.toLocaleString()} 万円`;
+            document.getElementById('val-registry-purchase').innerText = `${registryCost.toLocaleString()} 万円`;
+            document.getElementById('val-stamp-duty-purchase').innerText = `${stampDuty.toLocaleString()} 万円`;
+            document.getElementById('val-loan-process-fee-purchase').innerText = `${loanProcessFee.toLocaleString()} 万円`;
+            document.getElementById('val-insurance-fee-purchase').innerText = `${insuranceFee.toLocaleString()} 万円`;
+            document.getElementById('val-tax-adjustment-purchase').innerText = `${taxAdjustment.toLocaleString()} 万円`;
+            document.getElementById('val-maintenance-adjustment-purchase').innerText = `${maintenanceAdjustment.toLocaleString()} 万円`;
+            document.getElementById('val-display-other-purchase').innerText = `${otherSums.toLocaleString()} 万円`;
+
+            // Active option labels style
+            if (standardAgentFee) {
+                document.getElementById('lbl-fee-exist').className = "border-2 border-emerald-900 rounded-xl p-2.5 flex items-center justify-center gap-2 cursor-pointer bg-emerald-50/50 shadow-sm";
+                document.getElementById('lbl-fee-none').className = "border border-slate-300 rounded-xl p-2.5 flex items-center justify-center gap-2 cursor-pointer bg-white opacity-70";
+            } else {
+                document.getElementById('lbl-fee-exist').className = "border border-slate-300 rounded-xl p-2.5 flex items-center justify-center gap-2 cursor-pointer bg-white opacity-70";
+                document.getElementById('lbl-fee-none').className = "border-2 border-emerald-900 rounded-xl p-2.5 flex items-center justify-center gap-2 cursor-pointer bg-emerald-50/50 shadow-sm";
+            }
+
+            updateDonutChartPurchase(grandTotalNeeded, downPayment, requiredLoan, (totalExpenses + otherSums));
+        }
+
+        function updateDonutChartPurchase(total, cash, loan, otherExpenses) {
+            if (total <= 0) total = 1;
+            const cashPct = Math.max(0, Math.min(100, (cash / total) * 100));
+            const loanPct = Math.max(0, Math.min(100, (loan / total) * 100));
+            const expPct = Math.max(0, Math.min(100, (otherExpenses / total) * 100));
+
+            document.getElementById('slice-cash-purchase').style.strokeDasharray = `${cashPct} 100`;
+            document.getElementById('slice-loan-purchase').style.strokeDasharray = `${loanPct} 100`;
+            document.getElementById('slice-loan-purchase').style.strokeDashoffset = `-${cashPct}`;
+            document.getElementById('slice-expenses-purchase').style.strokeDasharray = `${expPct} 100`;
+            document.getElementById('slice-expenses-purchase').style.strokeDashoffset = `-${cashPct + loanPct}`;
+
+            document.getElementById('donut-cash-percent-purchase').innerText = `${Math.round(loanPct)}%`;
+            document.getElementById('legend-cash-pct-purchase').innerText = `${Math.round(cashPct)}%`;
+            document.getElementById('legend-loan-pct-purchase').innerText = `${Math.round(loanPct)}%`;
+            document.getElementById('legend-exp-pct-purchase').innerText = `${Math.round(expPct)}%`;
+        }
+
+
+        // ==========================================
+        // NEXT PLAN DETAIL CALCULATION LOGIC
+        // ==========================================
+        
+        // SALE MODE: 住み替え
+        function applyAllHandoverSale() {
+            document.getElementById('rep-down-payment-sale').value = Math.floor(globalNetCashSale);
+            calculateRepurchaseSale();
+            showToast("売却手残り全額を新居頭金に適用しました。");
+        }
+
+        function calculateRepurchaseSale() {
+            const repPrice = parseFloat(document.getElementById('rep-price-sale').value) || 0;
+            const downPayment = parseFloat(document.getElementById('rep-down-payment-sale').value) || 0;
+            const useHouse = document.getElementById('lbl-rep-house').querySelector('input').checked;
+
+            const loanYears = parseInt(document.getElementById('rep-loan-year-sale').value) || 35;
+            const annualInterest = parseFloat(document.getElementById('rep-loan-interest-sale').value) || 0.75;
+
+            const expensesRatio = useHouse ? 0.09 : 0.07;
+            const repExpenses = Math.round(repPrice * expensesRatio);
+
+            let loanRequired = repPrice + repExpenses - downPayment;
+            if (loanRequired < 0) loanRequired = 0;
+
+            let monthlyPayment = 0;
+            if (loanRequired > 0 && annualInterest > 0) {
+                const monthlyInterest = (annualInterest / 100) / 12;
+                const totalPayments = loanYears * 12;
+                const compoundPower = Math.pow(1 + monthlyInterest, totalPayments);
+                monthlyPayment = Math.round((loanRequired * 10000 * monthlyInterest * compoundPower) / (compoundPower - 1));
+            }
+
+            const annualPayment = Math.round((monthlyPayment * 12) / 10000);
+
+            document.getElementById('val-rep-expenses-sale').innerText = `${repExpenses.toLocaleString()} 万円`;
+            document.getElementById('val-rep-down-applied-sale').innerText = `${downPayment.toLocaleString()} 万円`;
+            document.getElementById('val-rep-loan-required-sale').innerText = `${loanRequired.toLocaleString()} 万円`;
+            document.getElementById('val-monthly-payment-sale').innerText = monthlyPayment > 0 ? `${monthlyPayment.toLocaleString()} 円` : "0 円";
+            document.getElementById('val-annual-payment-sale').innerText = `${annualPayment.toLocaleString()} 万円/年`;
+            document.getElementById('lbl-repayment-conditions-sale').innerText = `${loanYears}年返済 / 金利 ${annualInterest}%`;
+
+            if (useHouse) {
+                document.getElementById('lbl-rep-house').className = "border-2 border-blue-900 rounded-xl p-2 flex items-center gap-2 cursor-pointer bg-blue-50/50 shadow-sm";
+                document.getElementById('lbl-rep-condo').className = "border border-slate-300 rounded-xl p-2 flex items-center gap-2 cursor-pointer bg-white opacity-70";
+            } else {
+                document.getElementById('lbl-rep-house').className = "border border-slate-300 rounded-xl p-2 flex items-center gap-2 cursor-pointer bg-white opacity-70";
+                document.getElementById('lbl-rep-condo').className = "border-2 border-blue-900 rounded-xl p-2 flex items-center gap-2 cursor-pointer bg-blue-50/50 shadow-sm";
+            }
+
+            // Advisory logic Sale
+            const panel = document.getElementById('advisory-panel-sale');
+            const iconBg = document.getElementById('advisory-icon-bg-sale');
+            const icon = document.getElementById('advisory-icon-sale');
+            const title = document.getElementById('advisory-title-sale');
+            const desc = document.getElementById('advisory-text-sale');
+
+            if (downPayment > globalNetCashSale) {
+                panel.className = "p-5 rounded-xl border border-red-200 bg-red-50 flex gap-3 items-start";
+                iconBg.className = "w-8 h-8 rounded-full bg-red-600 text-white flex items-center justify-center shrink-0 mt-0.5 animate-pulse";
+                icon.className = "fa-solid fa-triangle-exclamation";
+                title.className = "text-xs font-bold text-red-950";
+                title.innerText = "資金計画アラート";
+                desc.innerText = `入力された頭金（${downPayment.toLocaleString()}万円）が、売却手残り上限（${Math.floor(globalNetCashSale).toLocaleString()}万円）を上回っています。`;
+            } else {
+                panel.className = "p-5 rounded-xl border border-emerald-200 bg-emerald-50 flex gap-3 items-start";
+                iconBg.className = "w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0 mt-0.5";
+                icon.className = "fa-solid fa-square-check";
+                title.className = "text-xs font-bold text-emerald-950";
+                title.innerText = "計画進行可能です";
+                desc.innerText = "売却手残り金が正しく充当されています。このまま進みましょう。";
+            }
+        }
+
+        // PURCHASE MODE: 住宅ローン＆返済負担率 (管理費等も含めた詳細計算版)
+        function pullSimulatorValuePurchase() {
+            document.getElementById('rep-price-purchase').value = Math.floor(globalRequiredLoanPurchase);
+            calculateRepurchasePurchase();
+            showToast("シミュレーター値を同期しました。");
+        }
+
+        function calculateRepurchasePurchase() {
+            const loanAmount = parseFloat(document.getElementById('rep-price-purchase').value) || 0;
+            const annualIncome = parseFloat(document.getElementById('rep-annual-income-purchase').value) || 1;
+
+            const loanYears = parseInt(document.getElementById('rep-loan-year-purchase').value) || 35;
+            const annualInterest = parseFloat(document.getElementById('rep-loan-interest-purchase').value) || 0.55;
+
+            // 追加：マンション管理費・修繕積立金・駐車場代・その他経費 (単位：円)
+            const maintFee = parseFloat(document.getElementById('rep-maint-fee-purchase').value) || 0;
+            const repairFee = parseFloat(document.getElementById('rep-repair-fee-purchase').value) || 0;
+            const parkingFee = parseFloat(document.getElementById('rep-parking-fee-purchase').value) || 0;
+            const otherFee = parseFloat(document.getElementById('rep-other-fee-purchase').value) || 0;
+
+            let monthlyLoanPayment = 0;
+            if (loanAmount > 0 && annualInterest > 0) {
+                const monthlyInterest = (annualInterest / 100) / 12;
+                const totalPayments = loanYears * 12;
+                const compoundPower = Math.pow(1 + monthlyInterest, totalPayments);
+                monthlyLoanPayment = Math.round((loanAmount * 10000 * monthlyInterest * compoundPower) / (compoundPower - 1));
+            }
+
+            const annualLoanPayment = Math.round((monthlyLoanPayment * 12) / 10000);
+            const totalLoanRepayment = annualLoanPayment * loanYears;
+
+            // 各種月額維持費の合計
+            const extraMonthlySum = maintFee + repairFee + parkingFee + otherFee;
+            // ローン + 維持費の総合毎月支払額
+            const monthlyTotalPayment = monthlyLoanPayment + extraMonthlySum;
+            
+            // 実質的な年間総支出額 (万円)
+            const annualTotalPayment = annualLoanPayment + ((extraMonthlySum * 12) / 10000);
+
+            // ① 住宅ローン単体返済負担率 (%)
+            const loanRepaymentRatio = Math.round((annualLoanPayment / annualIncome) * 1000) / 10;
+            // ② 維持費・各種管理費込 実質総返済負担率 (%)
+            const totalRepaymentRatio = Math.round((annualTotalPayment / annualIncome) * 1000) / 10;
+
+            // UI反映
+            // ローン単体
+            document.getElementById('val-monthly-payment-purchase').innerText = monthlyLoanPayment > 0 ? `${monthlyLoanPayment.toLocaleString()} 円` : "0 円";
+            document.getElementById('val-annual-payment-purchase').innerText = `${annualLoanPayment.toLocaleString()} 万円`;
+            document.getElementById('val-total-repayment-purchase').innerText = `${totalLoanRepayment.toLocaleString()} 万円`;
+            document.getElementById('val-repayment-ratio-purchase').innerText = `${loanRepaymentRatio}%`;
+
+            // 維持管理費込み総額
+            document.getElementById('val-monthly-total-payment-purchase').innerText = monthlyTotalPayment > 0 ? `${monthlyTotalPayment.toLocaleString()} 円` : "0 円";
+            document.getElementById('val-annual-total-payment-purchase').innerText = `${Math.round(annualTotalPayment).toLocaleString()} 万円`;
+            document.getElementById('val-total-repayment-ratio-purchase').innerText = `${totalRepaymentRatio}%`;
+
+            // 進捗バーには「実質総返済負担率」をバインドして可視化（より安全な返済診断のため）
+            const ratioBar = document.getElementById('ratio-progress-bar-purchase');
+            ratioBar.style.width = `${Math.min(100, totalRepaymentRatio)}%`;
+
+            const ratioLevel = document.getElementById('ratio-level-label-purchase');
+
+            if (totalRepaymentRatio <= 20) {
+                ratioBar.className = "bg-emerald-500 h-full transition-all duration-300";
+                ratioLevel.innerText = "超安全・ゆとりあり";
+                ratioLevel.className = "text-emerald-600 font-black";
+            } else if (totalRepaymentRatio <= 25) {
+                ratioBar.className = "bg-blue-500 h-full transition-all duration-300";
+                ratioLevel.innerText = "標準・適正範囲";
+                ratioLevel.className = "text-blue-600 font-black";
+            } else if (totalRepaymentRatio <= 30) {
+                ratioBar.className = "bg-amber-500 h-full transition-all duration-300";
+                ratioLevel.innerText = "要注意・見直し推奨";
+                ratioLevel.className = "text-amber-600 font-black";
+            } else {
+                ratioBar.className = "bg-red-500 h-full transition-all duration-300";
+                ratioLevel.innerText = "警戒・家計圧迫大";
+                ratioLevel.className = "text-red-600 font-black";
+            }
+
+            // Advisory Purchase (実質総支払負担率に基づいたアドバイス)
+            const panel = document.getElementById('advisory-panel-purchase');
+            const iconBg = document.getElementById('advisory-icon-bg-purchase');
+            const icon = document.getElementById('advisory-icon-purchase');
+            const title = document.getElementById('advisory-title-purchase');
+            const desc = document.getElementById('advisory-text-purchase');
+
+            if (totalRepaymentRatio > 35) {
+                panel.className = "p-5 rounded-xl border border-red-200 bg-red-50 flex gap-3 items-start";
+                iconBg.className = "w-8 h-8 rounded-full bg-red-600 text-white flex items-center justify-center shrink-0 mt-0.5 animate-pulse";
+                icon.className = "fa-solid fa-triangle-exclamation";
+                title.className = "text-xs font-bold text-red-950";
+                title.innerText = "資金計画に警戒が必要です (維持費等を含む実質総負担)";
+                desc.innerHTML = `月々の管理費や積立金を含めた総返済負担率が過剰（${totalRepaymentRatio}%）になっています。借入予定額を減らすか、自己資金を補強してローン単体の比率（現在${loanRepaymentRatio}%）を一段階抑えてください。`;
+            } else if (totalRepaymentRatio > 25) {
+                panel.className = "p-5 rounded-xl border border-amber-200 bg-amber-50 flex gap-3 items-start";
+                iconBg.className = "w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center shrink-0 mt-0.5";
+                icon.className = "fa-solid fa-circle-exclamation";
+                title.className = "text-xs font-bold text-amber-950";
+                title.innerText = "実質負担率がやや高めです (ローン単体は適正水準)";
+                desc.innerHTML = `住宅ローンのみの返済負担率は${loanRepaymentRatio}%で審査適合内ですが、管理費や積立金を足した実質総負担率は${totalRepaymentRatio}%に達します。新居移行後に想定外の出費で家計が圧迫されないよう、生活予備費を厚めに残しておきましょう。`;
+            } else {
+                panel.className = "p-5 rounded-xl border border-emerald-200 bg-emerald-50 flex gap-3 items-start";
+                iconBg.className = "w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0 mt-0.5";
+                icon.className = "fa-solid fa-square-check";
+                title.className = "text-xs font-bold text-emerald-950";
+                title.innerText = "極めて健全かつ安心な計画です";
+                desc.innerHTML = `マンション特有の月々維持費を含めても、実質総負担率は${totalRepaymentRatio}%（ローン単体では${loanRepaymentRatio}%）と非常に理想的な比率をキープできています。将来的な金利変動やライフプランの変化にも十分対応可能です。`;
+            }
+        }
+
+        // ==========================================
+        // DIAGNOSIS DYNAMIC TEMPLATE & LOGIC
+        // ==========================================
+        function buildQuestionnaire() {
+            const container = document.getElementById('diagnosis-cards-container');
+            container.innerHTML = '';
+
+            const list = diagnosisQuestions[currentMode];
+            const answerSet = (currentMode === 'sale') ? answersSale : answersPurchase;
+
+            // Labels
+            if (currentMode === 'sale') {
+                document.getElementById('diagnosis-main-heading').innerText = "媒介契約マッチング診断";
+                document.getElementById('diagnosis-sub-heading').innerText = "媒介契約（一般・専任・専属専任）から、あなたの希望の売却進行に適した契約形態を算出します。";
+            } else {
+                document.getElementById('diagnosis-main-heading').innerText = "ローン金利＆購入アプローチ適性診断";
+                document.getElementById('diagnosis-sub-heading').innerText = "変動金利か固定金利か、新築か中古か。あなたの安心安全な購入アプローチを自動判定します。";
+            }
+
+            list.forEach(q => {
+                const isYes = answerSet[q.qNum] === 'yes';
+                const isNo = answerSet[q.qNum] === 'no';
+
+                const card = document.createElement('div');
+                card.className = "border border-slate-200 rounded-xl p-5 bg-slate-50 shadow-sm";
+                card.innerHTML = `
+                    <p class="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
+                        <span class="flex items-center justify-center w-5 h-5 rounded-full bg-theme-primary text-white text-xs">${q.qNum}</span>
+                        ${q.text}
+                    </p>
+                    <div class="flex gap-4">
+                        <button onclick="answerQuestion(${q.qNum}, 'yes')" id="q${q.qNum}-yes" class="flex-1 py-2.5 px-4 rounded-lg border text-sm font-bold transition-all ${isYes ? 'border-theme-primary text-theme-primary bg-theme-secondary font-black shadow-inner' : 'border-slate-300 text-slate-500 bg-white hover:bg-slate-50'}" style="${isYes ? 'border-width: 2px;' : ''}">${q.yesText}</button>
+                        <button onclick="answerQuestion(${q.qNum}, 'no')" id="q${q.qNum}-no" class="flex-1 py-2.5 px-4 rounded-lg border text-sm font-bold transition-all ${isNo ? 'border-theme-primary text-theme-primary bg-theme-secondary font-black shadow-inner' : 'border-slate-300 text-slate-500 bg-white hover:bg-slate-50'}" style="${isNo ? 'border-width: 2px;' : ''}">${q.noText}</button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function answerQuestion(qNum, value) {
+            if (currentMode === 'sale') {
+                answersSale[qNum] = value;
+            } else {
+                answersPurchase[qNum] = value;
+            }
+            buildQuestionnaire();
+            showToast(`質問${qNum}に回答しました。`, "info");
+        }
+
+        // Integrated Diagnostic Scoring Engine
+        function calculateDiagnosis() {
+            const answerSet = (currentMode === 'sale') ? answersSale : answersPurchase;
+            if (answerSet[1] === null) answerQuestion(1, 'no');
+            if (answerSet[2] === null) answerQuestion(2, 'no');
+            if (answerSet[3] === null) answerQuestion(3, 'yes');
+
+            const resultBlock = document.getElementById('diagnosis-result');
+            const questionnaireBlock = document.getElementById('diagnosis-questionnaire');
+
+            if (currentMode === 'sale') {
+                // SALE DIAGNOSIS ALGORITHM
+                let scoreGeneral = 30;
+                let scoreExclusive = 50;
+                let scoreFullExclusive = 30;
+
+                if (answersSale[1] === 'yes') {
+                    scoreGeneral += 40; scoreExclusive += 20; scoreFullExclusive -= 45;
+                } else {
+                    scoreExclusive += 15; scoreFullExclusive += 30;
+                }
+
+                if (answersSale[2] === 'yes') {
+                    scoreGeneral += 55; scoreExclusive -= 30; scoreFullExclusive -= 50;
+                } else {
+                    scoreExclusive += 30; scoreFullExclusive += 35;
+                }
+
+                if (answersSale[3] === 'yes') {
+                    scoreFullExclusive += 40; scoreExclusive += 25; scoreGeneral -= 30;
+                } else {
+                    scoreGeneral += 25; scoreExclusive += 10;
+                }
+
+                scoreGeneral = Math.max(10, Math.min(95, scoreGeneral));
+                scoreExclusive = Math.max(15, Math.min(95, scoreExclusive));
+                scoreFullExclusive = Math.max(5, Math.min(95, scoreFullExclusive));
+
+                let recTitle = "専任媒介契約";
+                let recSub = "1社に窓口を絞りつつ、知人との自己発見取引もカバーできる、最も標準的で安心感のある契約形態。";
+                let recReins = "契約締結から7日以内";
+
+                const maxScore = Math.max(scoreGeneral, scoreExclusive, scoreFullExclusive);
+                if (maxScore === scoreGeneral) {
+                    recTitle = "一般媒介契約";
+                    recSub = "複数会社へ同時に売却を委託でき、自分でも直接買主を見つけられる自由度が最大の契約形態。";
+                    recReins = "登録義務なし";
+                } else if (maxScore === scoreFullExclusive) {
+                    recTitle = "専属専任媒介契約";
+                    recSub = "他社や自身での直接取引を禁止し、1社に完全に任せることで最優先の広告展開と最大頻度の報告を確約します。";
+                    recReins = "契約締結から5日以内";
+                }
+
+                document.getElementById('rec-contract-title').innerText = recTitle;
+                document.getElementById('rec-contract-sub').innerText = recSub;
+                document.getElementById('rec-meta-label').innerText = "指定流通機関登録（レインズ）";
+                document.getElementById('rec-contract-reins').innerText = recReins;
+
+                // Build option cards
+                const grid = document.getElementById('diagnosis-options-grid');
+                grid.innerHTML = `
+                    <div id="card-gen" class="border rounded-xl p-5 bg-white shadow-sm flex flex-col justify-between transition-all ${recTitle === "一般媒介契約" ? 'border-blue-900 ring-2 ring-blue-900/10' : 'border-slate-200 opacity-80'}">
+                        <div>
+                            <h4 class="font-bold text-slate-900 text-lg">一般媒介契約</h4>
+                            <p class="text-xs text-slate-500 mt-1">複数社と同時契約</p>
+                            <p class="text-xs text-slate-600 mt-3">自由に競わせたい方に最適。報告義務は発生しません。</p>
+                        </div>
+                        <div class="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs">
+                            <span class="font-bold text-slate-500">適合率</span>
+                            <span class="font-extrabold text-slate-800 text-base">${scoreGeneral}%</span>
+                        </div>
+                    </div>
+                    <div id="card-exc" class="border rounded-xl p-5 bg-white shadow-sm flex flex-col justify-between transition-all ${recTitle === "専任媒介契約" ? 'border-blue-900 ring-2 ring-blue-900/10' : 'border-slate-200 opacity-80'}">
+                        <div>
+                            <h4 class="font-bold text-slate-900 text-lg">専任媒介契約</h4>
+                            <p class="text-xs text-slate-500 mt-1">1社限定（自己売却可）</p>
+                            <p class="text-xs text-slate-600 mt-3">知人売却もカバーしつつ、1社に窓口を預けてスマートに推進。</p>
+                        </div>
+                        <div class="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs">
+                            <span class="font-bold text-slate-500">適合率</span>
+                            <span class="font-extrabold text-slate-800 text-base">${scoreExclusive}%</span>
+                        </div>
+                    </div>
+                    <div id="card-ful" class="border rounded-xl p-5 bg-white shadow-sm flex flex-col justify-between transition-all ${recTitle === "専属専任媒介契約" ? 'border-blue-900 ring-2 ring-blue-900/10' : 'border-slate-200 opacity-80'}">
+                        <div>
+                            <h4 class="font-bold text-slate-900 text-lg">専属専任媒介契約</h4>
+                            <p class="text-xs text-slate-500 mt-1">1社完全専属（自己売却不可）</p>
+                            <p class="text-xs text-slate-600 mt-3">最大級の販売熱量と、週1回以上の厳格な活動報告義務。</p>
+                        </div>
+                        <div class="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs">
+                            <span class="font-bold text-slate-500">適合率</span>
+                            <span class="font-extrabold text-slate-800 text-base">${scoreFullExclusive}%</span>
+                        </div>
+                    </div>
+                `;
+
+            } else {
+                // PURCHASE DIAGNOSIS ALGORITHM
+                let scoreGeneral = 30; // Float
+                let scoreExclusive = 50; // Special Fixed period
+                let scoreFullExclusive = 30; // Full Fixed
+
+                if (answersPurchase[1] === 'yes') {
+                    scoreGeneral -= 20; scoreExclusive += 25; scoreFullExclusive += 55;
+                } else {
+                    scoreGeneral += 50; scoreExclusive += 20; scoreFullExclusive -= 10;
+                }
+
+                if (answersPurchase[2] === 'yes') {
+                    scoreGeneral += 25; scoreExclusive += 30; scoreFullExclusive += 15;
+                } else {
+                    scoreGeneral += 15; scoreExclusive += 15;
+                }
+
+                if (answersPurchase[3] === 'yes') {
+                    scoreExclusive += 40; scoreGeneral += 15; scoreFullExclusive -= 20;
+                } else {
+                    scoreGeneral += 30; scoreFullExclusive += 25;
+                }
+
+                scoreGeneral = Math.max(10, Math.min(95, scoreGeneral));
+                scoreExclusive = Math.max(15, Math.min(95, scoreExclusive));
+                scoreFullExclusive = Math.max(5, Math.min(95, scoreFullExclusive));
+
+                let recTitle = "変動金利プラン ＆ 手厚い特約団信";
+                let recSub = "低金利メリットを最大活用し、がん団信などで万一の備えを付加した高バランス戦略。";
+                let recReins = "中古マンション・新築建売";
+
+                const maxScore = Math.max(scoreGeneral, scoreExclusive, scoreFullExclusive);
+                if (maxScore === scoreGeneral) {
+                    recTitle = "最安金利 変動プラン";
+                    recSub = "適用金利の低さを最も重視。将来の上昇リスクを一部許容しながら月々のランニングコストを最安にする手法。";
+                    recReins = "全物件共通";
+                } else if (maxScore === scoreFullExclusive) {
+                    recTitle = "フラット35 ＆ 全期間固定金利";
+                    recSub = "金利変動を生涯完全に排除し、支払計画の確実性を100%にする絶対の安全プラン。";
+                    recReins = "新築一戸建て・注文住宅";
+                }
+
+                document.getElementById('rec-contract-title').innerText = recTitle;
+                document.getElementById('rec-contract-sub').innerText = recSub;
+                document.getElementById('rec-meta-label').innerText = "おすすめ物件アプローチ";
+                document.getElementById('rec-contract-reins').innerText = recReins;
+
+                const grid = document.getElementById('diagnosis-options-grid');
+                grid.innerHTML = `
+                    <div id="card-gen" class="border rounded-xl p-5 bg-white shadow-sm flex flex-col justify-between transition-all ${recTitle === "最安金利 変動プラン" ? 'border-emerald-600 ring-2 ring-emerald-600/10' : 'border-slate-200 opacity-80'}">
+                        <div>
+                            <h4 class="font-bold text-slate-900 text-lg">純粋最安変動金利</h4>
+                            <p class="text-xs text-slate-500 mt-1">月々の返済支払いを最安化</p>
+                            <p class="text-xs text-slate-600 mt-3">特約等をあえて削減し、金利単価を下げて初期キャッシュフローを最大化。</p>
+                        </div>
+                        <div class="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs">
+                            <span class="font-bold text-slate-500">適合率</span>
+                            <span class="font-extrabold text-slate-800 text-base">${scoreGeneral}%</span>
+                        </div>
+                    </div>
+                    <div id="card-exc" class="border rounded-xl p-5 bg-white shadow-sm flex flex-col justify-between transition-all ${recTitle === "変動金利プラン ＆ 手厚い特約団信" ? 'border-emerald-600 ring-2 ring-emerald-600/10' : 'border-slate-200 opacity-80'}">
+                        <div>
+                            <h4 class="font-bold text-slate-900 text-lg">変動 ＆ 厚い団信特約</h4>
+                            <p class="text-xs text-slate-500 mt-1">安心保険代わりの金利戦略</p>
+                            <p class="text-xs text-slate-600 mt-3">がん団信や三大疾病保障を付与。生命保険の役割も住宅ローンへ一元化します。</p>
+                        </div>
+                        <div class="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs">
+                            <span class="font-bold text-slate-500">適合率</span>
+                            <span class="font-extrabold text-slate-800 text-base">${scoreExclusive}%</span>
+                        </div>
+                    </div>
+                    <div id="card-ful" class="border rounded-xl p-5 bg-white shadow-sm flex flex-col justify-between transition-all ${recTitle === "フラット35 / 固定金利" ? 'border-emerald-600 ring-2 ring-emerald-600/10' : 'border-slate-200 opacity-80'}">
+                        <div>
+                            <h4 class="font-bold text-slate-900 text-lg">フラット35 / 固定金利</h4>
+                            <p class="text-xs text-slate-500 mt-1">完済まで返済額が不変</p>
+                            <p class="text-xs text-slate-600 mt-3">金利引き上げリスクを完全に切り離し、完済まで全く支払額が変わらない戦略。</p>
+                        </div>
+                        <div class="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs">
+                            <span class="font-bold text-slate-500">適合率</span>
+                            <span class="font-extrabold text-slate-800 text-base">${scoreFullExclusive}%</span>
+                        </div>
+                    </div>
+                `;
+            }
+
+            questionnaireBlock.classList.add('hidden');
+            resultBlock.classList.remove('hidden');
+            showToast("適性診断が完了しました！");
+        }
+
+        function resetDiagnosis() {
+            if (currentMode === 'sale') {
+                answersSale[1] = null; answersSale[2] = null; answersSale[3] = null;
+            } else {
+                answersPurchase[1] = null; answersPurchase[2] = null; answersPurchase[3] = null;
+            }
+            buildQuestionnaire();
+            document.getElementById('diagnosis-questionnaire').classList.remove('hidden');
+            document.getElementById('diagnosis-result').classList.add('hidden');
+            showToast("診断解答をリセットしました。", "info");
+        }
+
+        // ==========================================
+        // DATA IMPORT & EXPORT (Unifying Sale & Purchase Into One File)
+        // ==========================================
+        function exportData() {
+            const unifiedData = {
+                version: "5.3",
+                currentMode: currentMode,
+                salePropertyType: selectedPropertyTypeSale,
+                purchasePropertyType: selectedPropertyTypePurchase,
+                
+                // Sale state
+                userProgressSale: userProgressSale,
+                userNotesSale: userNotesSale,
+                answersSale: answersSale,
+                simulatorInputsSale: {
+                    soldPrice: document.getElementById('sim-sold-price').value,
+                    buyPrice: document.getElementById('sim-buy-price').value,
+                    loanRemain: document.getElementById('sim-loan-remain').value,
+                    otherExpenses: document.getElementById('sim-other-exp').value,
+                    period: document.querySelector('input[name="sim-period"]:checked').value,
+                    deduction: document.getElementById('sim-deduction').checked,
+                    emptyDeduction: document.getElementById('sim-empty-deduction').checked,
+                    tenYears: document.getElementById('sim-ten-years').checked,
+                    nextPlanPriceSale: document.getElementById('rep-price-sale').value,
+                    nextPlanDownPaymentSale: document.getElementById('rep-down-payment-sale').value,
+                    nextPlanTypeSale: document.querySelector('input[name="rep-type"]:checked').value,
+                    nextPlanYearSale: document.getElementById('rep-loan-year-sale').value,
+                    nextPlanInterestSale: document.getElementById('rep-loan-interest-sale').value
+                },
+
+                // Purchase state
+                userProgressPurchase: userProgressPurchase,
+                userNotesPurchase: userNotesPurchase,
+                answersPurchase: answersPurchase,
+                simulatorInputsPurchase: {
+                    propertyPrice: document.getElementById('sim-property-price').value,
+                    downPayment: document.getElementById('sim-down-payment').value,
+                    agentOption: document.querySelector('input[name="sim-agent-option"]:checked').value,
+                    renovationPrice: document.getElementById('sim-renovation-price').value,
+                    taxAdjustment: document.getElementById('sim-tax-adjustment').value,
+                    maintenanceAdjustment: document.getElementById('sim-maintenance-adjustment').value,
+                    otherMovingPrice: document.getElementById('sim-other-moving-price').value,
+                    // 拡張ローン診断
+                    nextPlanLoanPurchase: document.getElementById('rep-price-purchase').value,
+                    nextPlanAnnualIncomePurchase: document.getElementById('rep-annual-income-purchase').value,
+                    nextPlanYearPurchase: document.getElementById('rep-loan-year-purchase').value,
+                    nextPlanInterestPurchase: document.getElementById('rep-loan-interest-purchase').value,
+                    nextPlanMaintFee: document.getElementById('rep-maint-fee-purchase').value,
+                    nextPlanRepairFee: document.getElementById('rep-repair-fee-purchase').value,
+                    nextPlanParkingFee: document.getElementById('rep-parking-fee-purchase').value,
+                    nextPlanOtherFee: document.getElementById('rep-other-fee-purchase').value
+                }
+            };
+
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(unifiedData, null, 2));
+            const dlAnchorElem = document.createElement('a');
+            dlAnchorElem.setAttribute("href", dataStr);
+            dlAnchorElem.setAttribute("download", `ＳＵＭＲＩＳＥ提案データ_${new Date().toISOString().slice(0, 10)}.json`);
+            dlAnchorElem.click();
+            showToast("すべての売却・購入データを1つのJSONファイルに保存しました！");
+        }
+
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const parsed = JSON.parse(e.target.result);
+
+                    // Restore modes & types
+                    currentMode = parsed.currentMode || 'sale';
+                    selectedPropertyTypeSale = parsed.salePropertyType || 'condo';
+                    selectedPropertyTypePurchase = parsed.purchasePropertyType || 'condo';
+
+                    // Restore sale progress
+                    if (parsed.userProgressSale) Object.assign(userProgressSale, parsed.userProgressSale);
+                    if (parsed.userNotesSale) userNotesSale = parsed.userNotesSale;
+                    if (parsed.answersSale) Object.assign(answersSale, parsed.answersSale);
+
+                    // Restore sale simulator
+                    if (parsed.simulatorInputsSale) {
+                        document.getElementById('sim-sold-price').value = parsed.simulatorInputsSale.soldPrice;
+                        document.getElementById('sim-buy-price').value = parsed.simulatorInputsSale.buyPrice;
+                        document.getElementById('sim-loan-remain').value = parsed.simulatorInputsSale.loanRemain;
+                        document.getElementById('sim-other-exp').value = parsed.simulatorInputsSale.otherExpenses;
+                        
+                        const longRadio = document.getElementById('lbl-period-long').querySelector('input');
+                        const shortRadio = document.getElementById('lbl-period-short').querySelector('input');
+                        if (parsed.simulatorInputsSale.period === 'long') {
+                            longRadio.checked = true;
+                        } else {
+                            shortRadio.checked = true;
+                        }
+
+                        document.getElementById('sim-deduction').checked = parsed.simulatorInputsSale.deduction;
+                        document.getElementById('sim-empty-deduction').checked = !!parsed.simulatorInputsSale.emptyDeduction;
+                        document.getElementById('sim-ten-years').checked = parsed.simulatorInputsSale.tenYears;
+
+                        document.getElementById('rep-price-sale').value = parsed.simulatorInputsSale.nextPlanPriceSale || "4500";
+                        document.getElementById('rep-down-payment-sale').value = parsed.simulatorInputsSale.nextPlanDownPaymentSale || "1000";
+                        
+                        const repCondo = document.getElementById('lbl-rep-condo').querySelector('input');
+                        const repHouse = document.getElementById('lbl-rep-house').querySelector('input');
+                        if (parsed.simulatorInputsSale.nextPlanTypeSale === 'condo') {
+                            repCondo.checked = true;
+                        } else {
+                            repHouse.checked = true;
+                        }
+                        document.getElementById('rep-loan-year-sale').value = parsed.simulatorInputsSale.nextPlanYearSale || "35";
+                        document.getElementById('rep-loan-interest-sale').value = parsed.simulatorInputsSale.nextPlanInterestSale || "0.75";
+                    }
+
+                    // Restore purchase progress
+                    if (parsed.userProgressPurchase) Object.assign(userProgressPurchase, parsed.userProgressPurchase);
+                    if (parsed.userNotesPurchase) userNotesPurchase = parsed.userNotesPurchase;
+                    if (parsed.answersPurchase) Object.assign(answersPurchase, parsed.answersPurchase);
+
+                    // Restore purchase simulator
+                    if (parsed.simulatorInputsPurchase) {
+                        document.getElementById('sim-property-price').value = parsed.simulatorInputsPurchase.propertyPrice;
+                        document.getElementById('sim-down-payment').value = parsed.simulatorInputsPurchase.downPayment;
+                        
+                        const feeExistRadio = document.getElementById('lbl-fee-exist').querySelector('input');
+                        const feeNoneRadio = document.getElementById('lbl-fee-none').querySelector('input');
+                        if (parsed.simulatorInputsPurchase.agentOption === 'standard') {
+                            feeExistRadio.checked = true;
+                        } else {
+                            feeNoneRadio.checked = true;
+                        }
+
+                        document.getElementById('sim-renovation-price').value = parsed.simulatorInputsPurchase.renovationPrice;
+                        document.getElementById('sim-tax-adjustment').value = parsed.simulatorInputsPurchase.taxAdjustment !== undefined ? parsed.simulatorInputsPurchase.taxAdjustment : "15";
+                        document.getElementById('sim-maintenance-adjustment').value = parsed.simulatorInputsPurchase.maintenanceAdjustment !== undefined ? parsed.simulatorInputsPurchase.maintenanceAdjustment : "6";
+                        document.getElementById('sim-other-moving-price').value = parsed.simulatorInputsPurchase.otherMovingPrice;
+
+                        document.getElementById('rep-price-purchase').value = parsed.simulatorInputsPurchase.nextPlanLoanPurchase || "3500";
+                        document.getElementById('rep-annual-income-purchase').value = parsed.simulatorInputsPurchase.nextPlanAnnualIncomePurchase || "650";
+                        document.getElementById('rep-loan-year-purchase').value = parsed.simulatorInputsPurchase.nextPlanYearPurchase || "35";
+                        document.getElementById('rep-loan-interest-purchase').value = parsed.simulatorInputsPurchase.nextPlanInterestPurchase || "0.55";
+                        
+                        // 各種維持費復元
+                        document.getElementById('rep-maint-fee-purchase').value = parsed.simulatorInputsPurchase.nextPlanMaintFee !== undefined ? parsed.simulatorInputsPurchase.nextPlanMaintFee : "15000";
+                        document.getElementById('rep-repair-fee-purchase').value = parsed.simulatorInputsPurchase.nextPlanRepairFee !== undefined ? parsed.simulatorInputsPurchase.nextPlanRepairFee : "15000";
+                        document.getElementById('rep-parking-fee-purchase').value = parsed.simulatorInputsPurchase.nextPlanParkingFee !== undefined ? parsed.simulatorInputsPurchase.nextPlanParkingFee : "10000";
+                        document.getElementById('rep-other-fee-purchase').value = parsed.simulatorInputsPurchase.nextPlanOtherFee !== undefined ? parsed.simulatorInputsPurchase.nextPlanOtherFee : "0";
+                    }
+
+                    // Trigger refresh on all tabs
+                    setAppMode(currentMode);
+                    showToast("すべての売却・購入の最新情報を正常に復元しました！", "success");
+                } catch(err) {
+                    showToast("JSONデータの解析に失敗しました。ファイル破損の可能性があります。", "error");
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // Helper: Toast Notifications
+        function showToast(message, type = "success") {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+
+            const toast = document.createElement('div');
+            toast.className = `p-4 rounded-xl shadow-lg border text-xs font-bold transition-all duration-300 transform translate-y-2 pointer-events-auto flex items-center gap-2
+                ${type === 'success' ? 'bg-emerald-500 border-emerald-600 text-white' : 
+                  type === 'error' ? 'bg-red-500 border-red-600 text-white' : 
+                  'bg-slate-800 border-slate-900 text-white'}`;
+            
+            toast.innerHTML = `
+                <i class="fa-solid ${type === 'success' ? 'fa-circle-check' : type === 'error' ? 'fa-circle-xmark' : 'fa-circle-info'}"></i>
+                <span>${message}</span>
+            `;
+
+            container.appendChild(toast);
+
+            // Animate in
+            setTimeout(() => {
+                toast.classList.remove('translate-y-2');
+                toast.classList.add('translate-y-0');
+            }, 10);
+
+            // Remove out
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => {
+                    toast.remove();
+                }, 300);
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
